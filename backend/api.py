@@ -531,6 +531,13 @@ def get_dashboard():
             return "prolongamento de rede de água"
         return k or "(sem categoria)"
 
+    def _equipe_key(nome: str) -> str:
+        raw = str(nome or "").strip()
+        if not raw:
+            return "(sem equipe)"
+        k = normalizar_texto(raw)
+        k = re.sub(r"\s+", " ", k or "").strip().lower()
+        return k or "(sem equipe)"
     # Bases auxiliares
     entrada_by_id = {e["id"]: e for e in entradas}
     exec_by_entrada: dict[str, list] = defaultdict(list)
@@ -546,7 +553,7 @@ def get_dashboard():
     total_itens = len(exec_all)
     total_qtd = sum(_qty(r.get("quantidade")) for r in exec_all)
     categorias_ativas = len({_servico_key(r.get("servico")) for r in exec_all if (r.get("servico") or "").strip()})
-    equipes_ativas = len({(e.get("equipe") or "").strip().lower() for e in entradas if (e.get("equipe") or "").strip()})
+    equipes_ativas = len({_equipe_key(e.get("equipe")) for e in entradas if (e.get("equipe") or "").strip()})
     nucleos_ativos = len({(e.get("nucleo") or "").strip().lower() for e in entradas if (e.get("nucleo") or "").strip()})
     frentes_sem_producao = sum(1 for e in entradas if len(exec_by_entrada.get(e["id"], [])) == 0)
     ocorr_por_frente = round(total_ocorr / total_frentes, 2) if total_frentes else 0.0
@@ -617,14 +624,20 @@ def get_dashboard():
 
     # Visão por equipe
     visao_equipe: dict[str, dict[str, Any]] = {}
+    nucleo_por_equipe: dict[str, Counter] = defaultdict(Counter)
     for r in exec_all:
         eq = (r.get("equipe") or "").strip() or "(sem equipe)"
         nu = (r.get("nucleo") or "").strip() or (entrada_by_id.get(r.get("entrada_id"), {}).get("nucleo") or "(sem nucleo)")
-        key = f"{eq}||{nu}"
+        key = _equipe_key(eq)
         if key not in visao_equipe:
             visao_equipe[key] = {"equipe": eq, "nucleo": nu, "qtd_total": 0.0, "registros": 0}
+        if len(eq) > len(str(visao_equipe[key].get("equipe") or "")):
+            visao_equipe[key]["equipe"] = eq
+        nucleo_por_equipe[key][nu] += 1
         visao_equipe[key]["qtd_total"] += _qty(r.get("quantidade"))
         visao_equipe[key]["registros"] += 1
+    for key, row in visao_equipe.items():
+        row["nucleo"] = nucleo_por_equipe[key].most_common(1)[0][0] if nucleo_por_equipe.get(key) else "(sem nucleo)"
     visao_equipe_rows = sorted(
         [{**v, "qtd_total": round(v["qtd_total"], 2)} for v in visao_equipe.values()],
         key=lambda x: (-x["qtd_total"], -x["registros"], x["equipe"])
@@ -1223,3 +1236,4 @@ if __name__=="__main__":
     debug = os.environ.get("FLASK_DEBUG","0")=="1"
     print(f"Servidor :{port} debug={debug}")
     app.run(host="0.0.0.0",port=port,debug=debug)
+
