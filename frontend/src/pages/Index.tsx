@@ -91,6 +91,29 @@ function fmt(v: number) {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(v);
 }
 
+function PieCategoryTooltip({ active, payload }: any) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]?.payload || {};
+  const categoria = row?.categoria || row?.name || "Categoria";
+  const part = Number(row?.participacao || payload[0]?.value || 0);
+  return (
+    <div
+      style={{
+        background: "#020617",
+        border: "1px solid rgba(56,189,248,0.45)",
+        borderRadius: 10,
+        color: "#e2e8f0",
+        padding: "8px 10px",
+        fontSize: 12,
+        boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+      }}
+    >
+      <div style={{ fontWeight: 600, color: "#f8fafc" }}>{categoria}</div>
+      <div style={{ color: "#93c5fd" }}>{fmt(part)}%</div>
+    </div>
+  );
+}
+
 const CATEGORY_COLORS = [
   "#38bdf8", // sky
   "#22d3ee", // cyan
@@ -312,18 +335,7 @@ export default function Dashboard() {
                         <Cell key={`cat-cell-${i}`} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(v: any, _name: any, item: any) => {
-                        const cat = item?.payload?.categoria || "";
-                        return [`${v}%`, cat];
-                      }}
-                      contentStyle={{
-                        background: "#020617",
-                        border: "1px solid rgba(56,189,248,0.35)",
-                        borderRadius: 10,
-                        color: "#e2e8f0",
-                      }}
-                    />
+                    <Tooltip content={<PieCategoryTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
