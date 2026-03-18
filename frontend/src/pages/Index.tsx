@@ -8,6 +8,7 @@ import { AlertTriangle, Boxes, HardHat, Layers, Network, RotateCcw, SlidersHoriz
 import {
   Bar,
   BarChart,
+  Cell,
   CartesianGrid,
   Pie,
   PieChart,
@@ -89,6 +90,19 @@ const statusMap: Record<string, "online" | "warning" | "critical" | "maintenance
 function fmt(v: number) {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(v);
 }
+
+const CATEGORY_COLORS = [
+  "#38bdf8", // sky
+  "#22d3ee", // cyan
+  "#34d399", // emerald
+  "#a3e635", // lime
+  "#facc15", // yellow
+  "#fb923c", // orange
+  "#f472b6", // pink
+  "#c084fc", // purple
+  "#60a5fa", // blue
+  "#2dd4bf", // teal
+];
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -293,8 +307,23 @@ export default function Dashboard() {
                         if (!categoria) return;
                         setFiltroCategoria((prev) => (prev === categoria ? "" : categoria));
                       }}
+                    >
+                      {visaoCategoriaRows.map((_, i) => (
+                        <Cell key={`cat-cell-${i}`} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: any, _name: any, item: any) => {
+                        const cat = item?.payload?.categoria || "";
+                        return [`${v}%`, cat];
+                      }}
+                      contentStyle={{
+                        background: "#020617",
+                        border: "1px solid rgba(56,189,248,0.35)",
+                        borderRadius: 10,
+                        color: "#e2e8f0",
+                      }}
                     />
-                    <Tooltip formatter={(v: any) => `${v}%`} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
