@@ -83,6 +83,17 @@ export default function Gerencial() {
   const nucleoOptions = useMemo(() => Array.from(new Set([...(data?.ranking_nucleos || []).map((r) => r.nucleo), ...nucleoDraft])).filter(Boolean), [data?.ranking_nucleos, nucleoDraft]);
   const municipioOptions = useMemo(() => Array.from(new Set([...(data?.ranking_municipios || []).map((r) => r.municipio), ...municipioDraft])).filter(Boolean), [data?.ranking_municipios, municipioDraft]);
   const equipeOptions = useMemo(() => Array.from(new Set([...(data?.ranking_equipes || []).map((r) => r.equipe), ...equipeDraft])).filter(Boolean), [data?.ranking_equipes, equipeDraft]);
+  const rankingNucleosData = useMemo(
+    () =>
+      [...(data?.ranking_nucleos || [])]
+        .filter((r) => String(r.nucleo || "").trim())
+        .sort((a, b) => (b.total - a.total) || String(a.nucleo).localeCompare(String(b.nucleo), "pt-BR")),
+    [data?.ranking_nucleos],
+  );
+  const rankingNucleosChartHeight = useMemo(
+    () => Math.max(220, rankingNucleosData.length * 34),
+    [rankingNucleosData.length],
+  );
 
   function aplicarFiltros() {
     setProcFrom(procFromDraft);
@@ -229,14 +240,27 @@ export default function Gerencial() {
               <div className="glass-surface rounded-2xl p-6">
                 <div className="relative z-10">
                   <SectionHeader title="Top Núcleos" subtitle="Por volume de processamentos"/>
-                  <div className="h-[220px]">
+                  <div style={{ height: rankingNucleosChartHeight }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data!.ranking_nucleos} layout="vertical">
+                      <BarChart
+                        data={rankingNucleosData}
+                        layout="vertical"
+                        margin={{ top: 4, right: 8, bottom: 4, left: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" horizontal={false}/>
                         <XAxis type="number" stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false}/>
-                        <YAxis type="category" dataKey="nucleo" stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false} width={90}/>
+                        <YAxis
+                          type="category"
+                          dataKey="nucleo"
+                          stroke="hsl(215 15% 40%)"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          width={140}
+                          interval={0}
+                        />
                         <Tooltip content={<CustomTooltip/>}/>
-                        <Bar dataKey="total" name="Total" fill="hsl(215 90% 60%)" radius={[0,4,4,0]}/>
+                        <Bar dataKey="total" name="Total" fill="hsl(215 90% 60%)" radius={[0,4,4,0]} barSize={18}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -303,5 +327,6 @@ export default function Gerencial() {
     </AppLayout>
   );
 }
+
 
 
