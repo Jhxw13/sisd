@@ -164,6 +164,28 @@ export default function Dashboard() {
 
   const visaoNucleoRows = useMemo(() => (data?.visao_nucleo || []).slice(0, 8), [data?.visao_nucleo]);
   const visaoEquipeRows = useMemo(() => (data?.visao_equipe || []).slice(0, 8), [data?.visao_equipe]);
+  const opcoesNucleo = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (data?.visao_nucleo || [])
+            .map((r) => String(r.nucleo || "").trim())
+            .filter((v) => v && v !== "(sem nucleo)"),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [data?.visao_nucleo],
+  );
+  const opcoesEquipe = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (data?.visao_equipe || [])
+            .map((r) => String(r.equipe || "").trim())
+            .filter((v) => v && v !== "(sem equipe)"),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [data?.visao_equipe],
+  );
   const visaoCategoriaRows = useMemo(() => {
     const rows = data?.visao_categoria || [];
     if (!filtroCategoria) return rows.slice(0, 8);
@@ -234,8 +256,30 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
               <input type="date" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
               <input type="date" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
-              <input value={filtroNucleo} onChange={(e) => setFiltroNucleo(e.target.value)} placeholder="Filtrar núcleo" className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
-              <input value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} placeholder="Filtrar equipe" className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <select
+                value={filtroNucleo}
+                onChange={(e) => setFiltroNucleo(e.target.value)}
+                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="">Todos os nucleos</option>
+                {opcoesNucleo.map((nucleo) => (
+                  <option key={nucleo} value={nucleo}>
+                    {nucleo}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroEquipe}
+                onChange={(e) => setFiltroEquipe(e.target.value)}
+                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="">Todas as equipes</option>
+                {opcoesEquipe.map((equipe) => (
+                  <option key={equipe} value={equipe}>
+                    {equipe}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -456,3 +500,4 @@ export default function Dashboard() {
     </AppLayout>
   );
 }
+
