@@ -114,6 +114,14 @@ export default function Dashboard() {
     return "bg-accent/15 text-accent";
   }, [data?.meta?.risco_operacional]);
 
+  const qtdTooltipRows = useMemo(() => {
+    const total = Number(data?.kpis?.qtd_total || 0);
+    return (data?.servicos_volume || []).slice(0, 8).map((r) => {
+      const pct = total > 0 ? (Number(r.qtd_total || 0) / total) * 100 : 0;
+      return { ...r, pct };
+    });
+  }, [data?.servicos_volume, data?.kpis?.qtd_total]);
+
   return (
     <AppLayout
       title="Painel Gerencial de Evolucao de Obra"
@@ -139,7 +147,29 @@ export default function Dashboard() {
             <MetricCard label="Nucleos" value={String(data?.kpis?.nucleos_ativos || 0)} subtitle="com atividade no periodo" icon={<Network className="w-5 h-5" />} onClick={() => navigate("/nucleos-cadastro")} />
             <MetricCard label="Frentes" value={String(data?.kpis?.frentes_registradas || 0)} subtitle="frentes registradas" icon={<HardHat className="w-5 h-5" />} onClick={() => navigate("/historico")} />
             <MetricCard label="Ocorrencias" value={String(data?.kpis?.ocorrencias || 0)} subtitle="itens de risco" icon={<AlertTriangle className="w-5 h-5" />} onClick={() => navigate("/ocorrencias")} />
-            <MetricCard label="Qtd Total" value={fmt(data?.kpis?.qtd_total || 0)} subtitle="volume consolidado" icon={<Boxes className="w-5 h-5" />} onClick={() => navigate("/historico")} />
+            <MetricCard
+              label="Qtd Total"
+              value={fmt(data?.kpis?.qtd_total || 0)}
+              subtitle="volume consolidado"
+              icon={<Boxes className="w-5 h-5" />}
+              onClick={() => navigate("/historico")}
+              tooltipContent={
+                <div className="space-y-2">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Composicao do Total</p>
+                  {qtdTooltipRows.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sem dados para detalhar.</p>
+                  ) : (
+                    qtdTooltipRows.map((r, i) => (
+                      <div key={`${r.servico}-${r.unidade}-${i}`} className="flex items-center gap-2">
+                        <span className="truncate text-foreground flex-1">{r.servico}</span>
+                        <span className="text-muted-foreground">{fmt(r.qtd_total)} {r.unidade}</span>
+                        <span className="font-mono-data text-primary w-12 text-right">{fmt(r.pct)}%</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              }
+            />
             <MetricCard label="Categorias" value={String(data?.kpis?.categorias_ativas || 0)} subtitle="categorias ativas" icon={<Layers className="w-5 h-5" />} />
             <MetricCard label="Equipes" value={String(data?.kpis?.equipes_ativas || 0)} subtitle="equipes com producao" icon={<Users className="w-5 h-5" />} onClick={() => navigate("/historico")} />
           </div>

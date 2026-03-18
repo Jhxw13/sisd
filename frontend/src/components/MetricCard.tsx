@@ -9,15 +9,16 @@ interface MetricCardProps {
   icon: React.ReactNode;
   subtitle?: string;
   onClick?: () => void;
+  tooltipContent?: React.ReactNode;
 }
 
-export function MetricCard({ label, value, change, changeType = "neutral", icon, subtitle, onClick }: MetricCardProps) {
+export function MetricCard({ label, value, change, changeType = "neutral", icon, subtitle, onClick, tooltipContent }: MetricCardProps) {
   return (
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onClick}
-      className={cn("glass-surface rounded-2xl p-6 group", onClick ? "cursor-pointer" : "cursor-default")}
+      className={cn("glass-surface rounded-2xl p-6 group relative", onClick ? "cursor-pointer" : "cursor-default")}
     >
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
@@ -39,6 +40,11 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
         <h3 className="text-2xl font-medium tracking-tighter text-foreground font-mono-data">{value}</h3>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
+      {tooltipContent && (
+        <div className="pointer-events-none absolute left-3 right-3 top-[calc(100%+8px)] z-20 rounded-xl border border-border bg-popover p-3 text-xs shadow-xl opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          {tooltipContent}
+        </div>
+      )}
     </motion.div>
   );
 }
