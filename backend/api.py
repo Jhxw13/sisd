@@ -89,6 +89,62 @@ def _insert_foto_meta(entrada_id: str, nome_arquivo: str, url_publica: str) -> N
         # Ambiente sem tabela ainda: nao quebra fluxo de upload.
         print(f"[foto-meta] {e}")
 
+def _fotos_from_storage(entrada_id: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    try:
+        arquivos = supabase.storage.from_(BUCKET).list(f"{entrada_id}/fotos") or []
+    except Exception as e:
+        print(f"[foto-storage] {entrada_id}: {e}")
+        return out
+
+    for item in arquivos:
+        nome = (item or {}).get("name")
+        if not nome:
+            continue
+        path = f"{entrada_id}/fotos/{nome}"
+        out.append({
+            "id": f"storage:{entrada_id}:{nome}",
+            "entrada_id": entrada_id,
+            "nome_arquivo": nome,
+            "url": supabase.storage.from_(BUCKET).get_public_url(path),
+            "created_at": (item or {}).get("updated_at") or (item or {}).get("created_at") or "",
+        })
+    return out
+
+def _fotos_entrada(entrada_id: str) -> list[dict[str, Any]]:
+    tabela: list[dict[str, Any]] = []
+    try:
+        tabela = (
+            supabase.table("fotos_relatorio")
+            .select("*")
+            .eq("entrada_id", entrada_id)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        tabela = []
+
+    storage = _fotos_from_storage(entrada_id)
+    if not tabela:
+        return storage
+
+    existentes = {str((f or {}).get("url", "")).strip() for f in tabela if (f or {}).get("url")}
+    merged = list(tabela)
+    for s in storage:
+        if s.get("url") and s["url"] not in existentes:
+            merged.append(s)
+    merged.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return merged
+
+def _cep_from_raw(raw_text: str) -> str:
+    txt = str(raw_text or "")
+    m = re.search(r"\bCEP:\s*([0-9]{5})-?([0-9]{3})\b", txt, flags=re.I)
+    if not m:
+        return ""
+    return f"{m.group(1)}{m.group(2)}"
+
 def _log(entrada_id, evento, detalhe="", uid=None):
     try:
         p: dict[str,Any] = {"entrada_id":entrada_id,"evento":evento,"detalhe":detalhe}
@@ -109,15 +165,27 @@ def _parse_txt(texto, source="entrada.txt"):
     parsed = reconcile_parsed_with_registry(parsed, nucleo_registry)
     return parsed
 
-def _salvar(parsed, enviado_por="", raw="") -> str:
-    res = supabase.table("entradas").insert({
+def _salvar(parsed, enviado_por="", raw="", cep: str = "") -> str:
+    payload = {
         "data_referencia": parsed.get("data_referencia") or None,
         "nucleo":    parsed.get("nucleo",""),
         "logradouro":parsed.get("logradouro",""),
         "municipio": parsed.get("municipio",""),
         "equipe":    parsed.get("equipe",""),
         "enviado_por": enviado_por, "status":"pendente", "raw_text": raw,
-    }).execute()
+    }
+    if cep:
+        payload["cep"] = cep
+    try:
+        res = supabase.table("entradas").insert(payload).execute()
+    except Exception as e:
+        # fallback para ambientes sem coluna "cep"
+        msg = str(e).lower()
+        if "column" in msg and "cep" in msg:
+            payload.pop("cep", None)
+            res = supabase.table("entradas").insert(payload).execute()
+        else:
+            raise
     eid = res.data[0]["id"]
     nucleo = parsed.get("nucleo",""); equipe = parsed.get("equipe","")
 
@@ -148,23 +216,90 @@ def _processar_async(entrada_id):
         ex = supabase.table("execucao").select("*").eq("entrada_id",entrada_id).execute().data
         oc = supabase.table("ocorrencias").select("*").eq("entrada_id",entrada_id).execute().data
         ob = supabase.table("observacoes").select("*").eq("entrada_id",entrada_id).execute().data
+        fotos = _fotos_entrada(entrada_id)
+
+        frente_id = f"F-{str(entrada_id)[:8]}"
+        data_ref = str(e.get("data_referencia","") or "")
+        nucleo = e.get("nucleo","")
+        equipe = e.get("equipe","")
+        logradouro = e.get("logradouro","")
+        municipio = e.get("municipio","")
 
         parsed: dict[str,Any] = {
-            "data_referencia":str(e.get("data_referencia","")),
-            "nucleo":e.get("nucleo",""),"logradouro":e.get("logradouro",""),
-            "municipio":e.get("municipio",""),"equipe":e.get("equipe",""),
-            "frentes":[], "servicos_nao_mapeados":[],
-            "execucao":[{"servico":r["servico"],"quantidade":r.get("quantidade"),
-                         "unidade":r.get("unidade",""),"equipe":r.get("equipe",e.get("equipe","")),
-                         "nucleo":r.get("nucleo",e.get("nucleo","")),"logradouro":e.get("logradouro",""),
-                         "municipio":e.get("municipio",""),"data":str(e.get("data_referencia",""))}
-                        for r in ex],
-            "ocorrencias":[{"descricao":r["descricao"],"equipe":r.get("equipe",e.get("equipe","")),
-                            "nucleo":r.get("nucleo",e.get("nucleo","")),"data":str(e.get("data_referencia",""))}
-                           for r in oc],
-            "observacoes":[{"texto":r["texto"],"equipe":r.get("equipe",e.get("equipe","")),
-                            "nucleo":r.get("nucleo",e.get("nucleo","")),"data":str(e.get("data_referencia",""))}
-                           for r in ob],
+            "data_referencia": data_ref,
+            "contrato": "Oeste 1",
+            "programa": "Agua Legal",
+            "arquivo_origem": f"entrada_{entrada_id}.json",
+            "nucleo": nucleo,
+            "logradouro": logradouro,
+            "municipio": municipio,
+            "equipe": equipe,
+            "frentes": [{
+                "id_frente": frente_id,
+                "data_referencia": data_ref,
+                "contrato": "Oeste 1",
+                "programa": "Agua Legal",
+                "nucleo": nucleo,
+                "equipe": equipe,
+                "logradouro": logradouro,
+                "municipio": municipio,
+                "status_frente": "com_producao" if len(ex) > 0 else "sem_producao",
+                "observacao_frente": "Gerado via API",
+                "arquivo_origem": f"entrada_{entrada_id}.json",
+            }],
+            "servicos_nao_mapeados": [],
+            "execucao":[{
+                "id_item": f"I{i+1:04d}",
+                "id_frente": frente_id,
+                "data_referencia": data_ref,
+                "contrato": "Oeste 1",
+                "programa": "Agua Legal",
+                "nucleo": r.get("nucleo", nucleo),
+                "equipe": r.get("equipe", equipe),
+                "logradouro": logradouro,
+                "municipio": municipio,
+                "item_original": r["servico"],
+                "item_normalizado": r["servico"],
+                "categoria_item": "servico",
+                "tipo_registro": "servico",
+                "servico": r["servico"],
+                "quantidade": r.get("quantidade") or 0,
+                "unidade": r.get("unidade","un"),
+                "material": "",
+                "especificacao": "",
+                "complemento": "",
+                "observacao_item": "",
+                "arquivo_origem": f"entrada_{entrada_id}.json",
+                "mensagem_origem": r["servico"],
+            } for i, r in enumerate(ex)],
+            "ocorrencias":[{
+                "id_ocorrencia": f"O{i+1:04d}",
+                "id_frente": frente_id,
+                "data_referencia": data_ref,
+                "contrato": "Oeste 1",
+                "programa": "Agua Legal",
+                "nucleo": r.get("nucleo", nucleo),
+                "equipe": r.get("equipe", equipe),
+                "logradouro": logradouro,
+                "municipio": municipio,
+                "tipo_ocorrencia": "ocorrencia_operacional",
+                "descricao": r["descricao"],
+                "impacto_producao": "sim",
+                "arquivo_origem": f"entrada_{entrada_id}.json",
+                "data": data_ref,
+            } for i, r in enumerate(oc)],
+            "observacoes":[{
+                "id_frente": frente_id,
+                "data_referencia": data_ref,
+                "nucleo": r.get("nucleo", nucleo),
+                "equipe": r.get("equipe", equipe),
+                "logradouro": logradouro,
+                "municipio": municipio,
+                "texto": r["texto"],
+                "arquivo_origem": f"entrada_{entrada_id}.json",
+                "data": data_ref,
+            } for r in ob],
+            "fotos": fotos,
         }
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -235,6 +370,7 @@ def post_entrada():
         return jsonify({"erro":"Adicione pelo menos um item de execução"}),400
 
     nucleo=body.get("nucleo",""); equipe=body.get("equipe",""); data=body["data_referencia"]
+    cep = re.sub(r"\D+", "", str(body.get("cep","") or ""))[:8]
     parsed = {
         "data_referencia":data,"nucleo":nucleo,"logradouro":body.get("logradouro",""),
         "municipio":body.get("municipio",""),"equipe":equipe,"frentes":[],"servicos_nao_mapeados":[],
@@ -245,9 +381,9 @@ def post_entrada():
         "observacoes":[{"texto":r["texto"],"equipe":equipe,"nucleo":nucleo}
                        for r in body.get("observacoes",[]) if str(r.get("texto","")).strip()],
     }
-    raw = "\n".join([f"Data: {data}",f"Nucleo: {nucleo}",f"Equipe: {equipe}","","EXECUCAO:"]
+    raw = "\n".join([f"Data: {data}",f"Nucleo: {nucleo}",f"Equipe: {equipe}",f"CEP: {cep}","","EXECUCAO:"]
                     + [f"- {r['servico']} {r.get('quantidade','')} {r.get('unidade','')}" for r in exec_v])
-    eid = _salvar(parsed, enviado_por=body.get("enviado_por",""), raw=raw)
+    eid = _salvar(parsed, enviado_por=body.get("enviado_por",""), raw=raw, cep=cep)
     protocolo = supabase.table("entradas").select("protocolo").eq("id",eid).single().execute().data["protocolo"]
     _log(eid,"enviado",f"por: {body.get('enviado_por','anônimo')}")
     return jsonify({"ok":True,"id":eid,"protocolo":protocolo,"mensagem":"Relatório enviado!"}),201
@@ -285,24 +421,19 @@ def get_entradas():
 @app.get("/api/entradas/<eid>")
 def get_entrada(eid):
     e  = supabase.table("entradas").select("*").eq("id",eid).single().execute().data
+    if not e.get("cep"):
+        e["cep"] = _cep_from_raw(e.get("raw_text", ""))
     ex = supabase.table("execucao").select("*").eq("entrada_id",eid).execute().data
     oc = supabase.table("ocorrencias").select("*").eq("entrada_id",eid).execute().data
     ob = supabase.table("observacoes").select("*").eq("entrada_id",eid).execute().data
     rl = supabase.table("relatorios_gerados").select("*").eq("entrada_id",eid).execute().data
     hi = supabase.table("historico_processamento").select("*").eq("entrada_id",eid).order("created_at").execute().data
-    try:
-        fotos = supabase.table("fotos_relatorio").select("*").eq("entrada_id",eid).order("created_at",desc=True).execute().data
-    except Exception:
-        fotos = []
+    fotos = _fotos_entrada(eid)
     return jsonify({**e,"execucao":ex,"ocorrencias":oc,"observacoes":ob,"relatorios":rl,"historico":hi,"fotos":fotos})
 
 @app.get("/api/entradas/<eid>/fotos")
 def get_fotos_entrada(eid):
-    try:
-        data = supabase.table("fotos_relatorio").select("*").eq("entrada_id",eid).order("created_at",desc=True).execute().data
-    except Exception:
-        data = []
-    return jsonify(data)
+    return jsonify(_fotos_entrada(eid))
 
 @app.post("/api/entradas/<eid>/fotos")
 def post_fotos_entrada(eid):
@@ -375,7 +506,7 @@ def get_dashboard():
     entradas = q.execute().data or []
 
     ids = [e["id"] for e in entradas]
-    exec_all = supabase.table("execucao").select("entrada_id,nucleo,equipe,servico,quantidade").in_("entrada_id", ids[:500]).execute().data if ids else []
+    exec_all = supabase.table("execucao").select("entrada_id,nucleo,equipe,servico,quantidade,unidade").in_("entrada_id", ids[:500]).execute().data if ids else []
     ocorr_all = supabase.table("ocorrencias").select("entrada_id,nucleo,equipe,descricao").in_("entrada_id", ids[:500]).execute().data if ids else []
 
     def _qty(v):
@@ -445,6 +576,21 @@ def get_dashboard():
         row["qtd_total"] = round(row["qtd_total"], 2)
         visao_categoria_rows.append(row)
     visao_categoria_rows = sorted(visao_categoria_rows, key=lambda x: (-x["qtd_total"], -x["registros"], x["categoria"]))
+
+    # Total por servico (volume consolidado por item + unidade)
+    servico_volume: dict[str, dict[str, Any]] = {}
+    for r in exec_all:
+        serv = (r.get("servico") or "").strip() or "(sem servico)"
+        uni = (r.get("unidade") or "un").strip() or "un"
+        key = f"{serv}||{uni}"
+        if key not in servico_volume:
+            servico_volume[key] = {"servico": serv, "unidade": uni, "qtd_total": 0.0, "registros": 0}
+        servico_volume[key]["qtd_total"] += _qty(r.get("quantidade"))
+        servico_volume[key]["registros"] += 1
+    servicos_volume_rows = sorted(
+        [{**v, "qtd_total": round(v["qtd_total"], 2)} for v in servico_volume.values()],
+        key=lambda x: (-x["qtd_total"], -x["registros"], x["servico"], x["unidade"])
+    )
 
     # Visão por equipe
     visao_equipe: dict[str, dict[str, Any]] = {}
@@ -525,6 +671,8 @@ def get_dashboard():
         "kpis": {
             "nucleos_ativos": nucleos_ativos,
             "frentes_registradas": total_frentes,
+            "total_entradas": total_frentes,
+            "total_execucoes": total_itens,
             "ocorrencias": total_ocorr,
             "qtd_total": round(total_qtd, 2),
             "categorias_ativas": categorias_ativas,
@@ -533,6 +681,7 @@ def get_dashboard():
         },
         "visao_nucleo": visao_nucleo_rows[:top_n],
         "visao_categoria": visao_categoria_rows[:top_n],
+        "servicos_volume": servicos_volume_rows[:max(top_n, 20)],
         "visao_equipe": visao_equipe_rows[:top_n],
         "ocorrencias_por_tipo": ocorrencias_por_tipo,
         "leitura_gerencial": leitura_gerencial,
@@ -588,19 +737,39 @@ def get_fotos_detalhadas():
     limit = min(200, max(10, int(request.args.get("limit", 80))))
     q = request.args.get("q", "").strip().lower()
 
+    fotos: list[dict[str, Any]] = []
+    entradas: list[dict[str, Any]] = []
+    e_map: dict[str, dict[str, Any]] = {}
+
     try:
         fotos = supabase.table("fotos_relatorio").select("*").order("created_at", desc=True).limit(limit).execute().data or []
+        if fotos:
+            entrada_ids = list({f.get("entrada_id") for f in fotos if f.get("entrada_id")})
+            entradas = supabase.table("entradas").select(
+                "id,protocolo,nucleo,municipio,logradouro,equipe,data_referencia,status"
+            ).in_("id", entrada_ids).execute().data or []
+            e_map = {e["id"]: e for e in entradas}
     except Exception:
-        return jsonify([])
+        fotos = []
 
     if not fotos:
-        return jsonify([])
-
-    entrada_ids = list({f.get("entrada_id") for f in fotos if f.get("entrada_id")})
-    entradas = supabase.table("entradas").select(
-        "id,protocolo,nucleo,municipio,logradouro,equipe,data_referencia,status"
-    ).in_("id", entrada_ids).execute().data or []
-    e_map = {e["id"]: e for e in entradas}
+        entradas = (
+            supabase.table("entradas")
+            .select("id,protocolo,nucleo,municipio,logradouro,equipe,data_referencia,status,created_at")
+            .order("created_at", desc=True)
+            .limit(60)
+            .execute()
+            .data
+            or []
+        )
+        e_map = {e["id"]: e for e in entradas}
+        for ent in entradas:
+            for f in _fotos_from_storage(ent["id"]):
+                fotos.append(f)
+                if len(fotos) >= limit:
+                    break
+            if len(fotos) >= limit:
+                break
 
     out = []
     for f in fotos:

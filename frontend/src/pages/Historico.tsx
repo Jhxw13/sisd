@@ -5,8 +5,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Filter, RefreshCw, ChevronRight, Download,
-  CheckCircle2, Clock, AlertTriangle, FileText, Wrench, StickyNote, Image as ImageIcon,
+  Search, Filter, RefreshCw, ChevronRight, Download, Play,
+  CheckCircle2, Clock, AlertTriangle, FileText, Wrench, StickyNote, Image as ImageIcon, MapPin,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
+import { openStreetViewPopup } from "@/lib/maps";
 import { useSearchParams } from "react-router-dom";
 
 const STATUS_CFG: Record<string,{label:string;badge:string}> = {
@@ -28,7 +29,7 @@ const STATUS_CFG: Record<string,{label:string;badge:string}> = {
 
 interface EntradaRow {
   id:string; protocolo:string; nucleo:string; municipio:string;
-  equipe:string; logradouro:string; data_referencia:string;
+  equipe:string; logradouro:string; data_referencia:string; cep?: string;
   status:string; enviado_por:string; created_at:string;
   _execucao_count?:number; _ocorr_count?:number; _relatorios?:any[];
 }
@@ -43,11 +44,12 @@ interface EntradaDetalhe extends EntradaRow {
 }
 
 function ModalHistoricoDetalhe({
-  entradaId, onClose,
-}: { entradaId: string; onClose: () => void }) {
+  entradaId, onClose, onUpdate,
+}: { entradaId: string; onClose: () => void; onUpdate: () => void }) {
   const [entrada, setEntrada] = useState<EntradaDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
+  const [processandoAgora, setProcessandoAgora] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -67,6 +69,28 @@ function ModalHistoricoDetalhe({
       });
     return () => { ativo = false; };
   }, [entradaId]);
+
+  async function gerarRelatorios() {
+    if (!entrada) return;
+    setProcessandoAgora(true);
+    try {
+      await apiFetch(`/api/entradas/${entrada.id}/processar`, { method: "POST" });
+      setEntrada((prev) => (prev ? { ...prev, status: "processando" } : prev));
+      onUpdate();
+    } catch (err: any) {
+      setErro(err?.message || "Falha ao iniciar geracao de relatorios.");
+    } finally {
+      setProcessandoAgora(false);
+    }
+  }
+  const abrirStreetView = async () => {
+    if (!entrada) return;
+    await openStreetViewPopup({
+      logradouro: entrada.logradouro,
+      municipio: entrada.municipio,
+      cep: entrada.cep,
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
@@ -98,10 +122,30 @@ function ModalHistoricoDetalhe({
           )}
           {!loading && entrada && (
             <div className="space-y-6">
+              <div className="flex items-center gap-2">
+                {["pendente", "em_revisao", "aprovado"].includes(entrada.status) && (
+                  <Button size="sm" onClick={gerarRelatorios} disabled={processandoAgora}>
+                    <Play className="w-3.5 h-3.5 mr-1.5" />
+                    {processandoAgora ? "Iniciando..." : "Gerar Relatorios"}
+                  </Button>
+                )}
+                {entrada.status === "processando" && (
+                  <span className="text-xs text-muted-foreground">Processamento em andamento...</span>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="bg-secondary rounded-lg px-3 py-2"><span className="text-muted-foreground">Equipe:</span> {entrada.equipe || "-"}</div>
                 <div className="bg-secondary rounded-lg px-3 py-2"><span className="text-muted-foreground">Municipio:</span> {entrada.municipio || "-"}</div>
-                <div className="bg-secondary rounded-lg px-3 py-2"><span className="text-muted-foreground">Logradouro:</span> {entrada.logradouro || "-"}</div>
+                <div className="bg-secondary rounded-lg px-3 py-2">
+                  <span className="text-muted-foreground">Logradouro:</span>{" "}
+                  {entrada.logradouro ? (
+                    <button type="button" onClick={() => { void abrirStreetView(); }} className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {entrada.logradouro}
+                    </button>
+                  ) : "-"}
+                </div>
                 <div className="bg-secondary rounded-lg px-3 py-2"><span className="text-muted-foreground">Status:</span> {entrada.status || "-"}</div>
               </div>
 
@@ -192,6 +236,7 @@ export default function Historico() {
   const [page, setPage]           = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [detalheId, setDetalheId] = useState<string | null>(null);
+  const [processandoId, setProcessandoId] = useState<string | null>(null);
 
   // Filtros
   const [q, setQ]                 = useState(searchParams.get("q") ?? "");
@@ -242,6 +287,16 @@ export default function Historico() {
   }
 
   const totalPgs = Math.ceil(total/20);
+
+  async function gerarDaLinha(row: EntradaRow) {
+    setProcessandoId(row.id);
+    try {
+      await apiFetch(`/api/entradas/${row.id}/processar`, { method: "POST" });
+      await carregar();
+    } finally {
+      setProcessandoId(null);
+    }
+  }
 
   return (
     <AppLayout title="Histórico" subtitle="Rastreabilidade operacional de todos os processamentos">
@@ -393,6 +448,17 @@ export default function Historico() {
                         {cfg.label}
                       </span>
                       <div className="flex gap-1">
+                        {["pendente","em_revisao","aprovado"].includes(row.status) && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); gerarDaLinha(row); }}
+                            className="text-primary hover:text-primary/80 disabled:opacity-40"
+                            disabled={processandoId === row.id}
+                            title="Gerar relatorios"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {(row._relatorios||[]).slice(0,1).map((r:any,j:number)=>(
                           r.url_pdf && <a key={j} href={r.url_pdf} target="_blank" rel="noreferrer"
                             onClick={(e)=>e.stopPropagation()}
@@ -423,6 +489,7 @@ export default function Historico() {
           <ModalHistoricoDetalhe
             entradaId={detalheId}
             onClose={() => setDetalheId(null)}
+            onUpdate={carregar}
           />
         )}
       </AnimatePresence>

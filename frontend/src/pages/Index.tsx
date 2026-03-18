@@ -55,6 +55,12 @@ interface DashboardData {
     qtd_total: number;
     registros: number;
   }[];
+  servicos_volume: {
+    servico: string;
+    unidade: string;
+    qtd_total: number;
+    registros: number;
+  }[];
   ocorrencias_por_tipo: {
     tipo: string;
     qtd: number;
@@ -235,6 +241,18 @@ export default function Dashboard() {
                 </DataRow>
               ))}
             </div>
+          </div>
+
+          <div className="glass-surface rounded-2xl p-5">
+            <SectionHeader title="Total por Servico" subtitle="Volume consolidado por item e unidade" />
+            {(data?.servicos_volume || []).slice(0, 20).map((r, i) => (
+              <DataRow key={`${r.servico}-${r.unidade}-${i}`} onClick={() => navigate(`/historico?q=${encodeURIComponent(r.servico)}`)}>
+                <span className="text-sm text-foreground w-64 truncate">{r.servico}</span>
+                <span className="text-xs text-muted-foreground w-20">{r.unidade}</span>
+                <span className="text-xs text-muted-foreground w-20">{r.registros} regs</span>
+                <span className="font-mono-data text-xs text-primary ml-auto">{fmt(r.qtd_total)}</span>
+              </DataRow>
+            ))}
           </div>
 
           <div className="glass-surface rounded-2xl overflow-hidden">

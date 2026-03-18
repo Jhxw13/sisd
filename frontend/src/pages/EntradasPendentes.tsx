@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, CheckCircle2, XCircle, Play, Eye,
   RefreshCw, Filter, ChevronRight, AlertTriangle,
-  Wrench, StickyNote, Clock, Download,
+  Wrench, StickyNote, Clock, Download, MapPin,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
@@ -24,6 +24,7 @@ import { SectionHeader, StatusBadge, DataRow } from "@/components/DataDisplay";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
+import { openStreetViewPopup } from "@/lib/maps";
 
 
 // â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -31,7 +32,7 @@ type StatusEntrada = "pendente" | "em_revisao" | "aprovado" | "processando" | "c
 
 interface Entrada {
   id: string; protocolo: string; nucleo: string;
-  data_referencia: string; equipe: string; logradouro: string;
+  data_referencia: string; equipe: string; logradouro: string; municipio: string; cep?: string;
   status: StatusEntrada; enviado_por: string;
   created_at: string; processado_em?: string;
 }
@@ -69,26 +70,35 @@ function ModalDetalhe({
   const [loadingDetalhe, setLoadingDetalhe] = useState(true);
   const [erroDetalhe, setErroDetalhe] = useState("");
 
-  useEffect(() => {
-    let ativo = true;
-    setLoadingDetalhe(true);
-    setErroDetalhe("");
-    api(`/api/entradas/${entradaId}`)
-      .then((res) => {
-        if (!ativo) return;
-        setEntrada(res);
-      })
-      .catch((err: any) => {
-        if (!ativo) return;
+  const carregarDetalhe = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoadingDetalhe(true);
+    try {
+      const res = await api(`/api/entradas/${entradaId}`);
+      setEntrada(res);
+      setErroDetalhe("");
+      return res;
+    } catch (err: any) {
+      if (!silencioso) {
         setErroDetalhe(err?.message || "Nao foi possivel carregar os detalhes desta entrada.");
-      })
-      .finally(() => {
-        if (ativo) setLoadingDetalhe(false);
-      });
-    return () => {
-      ativo = false;
-    };
+      }
+      return null;
+    } finally {
+      if (!silencioso) setLoadingDetalhe(false);
+    }
   }, [entradaId]);
+
+  useEffect(() => {
+    carregarDetalhe(false);
+  }, [carregarDetalhe]);
+
+  useEffect(() => {
+    if (entrada?.status !== "processando") return;
+    const timer = setInterval(() => {
+      carregarDetalhe(true);
+      onUpdate();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [entrada?.status, carregarDetalhe, onUpdate]);
 
   async function patchStatus(status: StatusEntrada) {
     setLoading(true);
@@ -108,6 +118,9 @@ function ModalDetalhe({
       await api(`/api/entradas/${entradaId}/processar`, { method: "POST" });
       onUpdate();
       setEntrada(prev => prev ? { ...prev, status: "processando" } : null);
+      setTimeout(() => { carregarDetalhe(true); }, 1200);
+    } catch (err: any) {
+      setErroDetalhe(err?.message || "Falha ao iniciar o processamento.");
     } finally { setLoading(false); }
   }
 
@@ -128,6 +141,13 @@ function ModalDetalhe({
   );
 
   const cfg = STATUS_CONFIG[entrada.status];
+  const openStreetView = async () => {
+    await openStreetViewPopup({
+      logradouro: entrada.logradouro,
+      municipio: entrada.municipio,
+      cep: entrada.cep,
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
@@ -145,6 +165,17 @@ function ModalDetalhe({
               </div>
               <h2 className="text-lg font-medium text-foreground">{entrada.nucleo}</h2>
               <p className="text-sm text-muted-foreground">{entrada.data_referencia} · {entrada.equipe}</p>
+              {entrada.logradouro && (
+                <button
+                  type="button"
+                  onClick={() => { void openStreetView(); }}
+                  className="mt-1 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  title="Abrir no Street View"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  {entrada.logradouro}
+                </button>
+              )}
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">✕</button>
           </div>
@@ -255,7 +286,7 @@ function ModalDetalhe({
               {entrada.status === "processando" && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  Gerando arquivos...
+                  Gerando arquivos... atualizando automaticamente
                 </div>
               )}
             </div>

@@ -19,6 +19,9 @@ create table if not exists public.entradas (
   created_at timestamptz not null default now()
 );
 
+alter table public.entradas
+  add column if not exists cep text;
+
 create table if not exists public.execucao (
   id uuid primary key default gen_random_uuid(),
   entrada_id uuid not null references public.entradas(id) on delete cascade,
@@ -102,6 +105,7 @@ create table if not exists public.nucleos (
 create index if not exists idx_entradas_created_at on public.entradas(created_at desc);
 create index if not exists idx_entradas_status on public.entradas(status);
 create index if not exists idx_entradas_nucleo on public.entradas(nucleo);
+create index if not exists idx_entradas_cep on public.entradas(cep);
 create index if not exists idx_execucao_entrada_id on public.execucao(entrada_id);
 create index if not exists idx_ocorrencias_entrada_id on public.ocorrencias(entrada_id);
 create index if not exists idx_observacoes_entrada_id on public.observacoes(entrada_id);

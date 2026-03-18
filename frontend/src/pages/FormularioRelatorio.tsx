@@ -91,6 +91,7 @@ export default function FormularioRelatorio() {
   const [nucleo, setNucleo] = useState("");
   const [logradouro, setLogradouro] = useState("");
   const [municipio, setMunicipio] = useState("");
+  const [cep, setCep] = useState("");
   const [equipe, setEquipe] = useState("");
   const [enviadoPor, setEnviadoPor] = useState("");
 
@@ -102,6 +103,7 @@ export default function FormularioRelatorio() {
 
   // UI
   const [enviando, setEnviando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [protocolo, setProtocolo] = useState("");
   const [erro, setErro] = useState("");
 
@@ -147,9 +149,36 @@ export default function FormularioRelatorio() {
   }
 
   // ─ Submit ─
+  function normalizarCep(v: string) {
+    return String(v || "").replace(/\D/g, "").slice(0, 8);
+  }
+
+  async function buscarCep() {
+    const cepDigits = normalizarCep(cep);
+    if (cepDigits.length !== 8) {
+      setErro("CEP invalido. Use 8 digitos.");
+      return;
+    }
+    setErro("");
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const json = await res.json();
+      if (!res.ok || json?.erro) throw new Error("CEP nao encontrado.");
+      const rua = [json.logradouro, json.bairro].filter(Boolean).join(" - ");
+      if (rua) setLogradouro(rua);
+      if (json.localidade) setMunicipio(json.localidade);
+      setCep(cepDigits);
+    } catch (e: any) {
+      setErro(e?.message || "Falha ao consultar CEP.");
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
   async function handleSubmit() {
     setErro("");
     if (!data || !nucleo) { setErro("Preencha a data e o núcleo."); return; }
+    if (cep && normalizarCep(cep).length !== 8) { setErro("CEP invalido. Use 8 digitos."); return; }
     const execValidas = execucao.filter(r => r.servico.trim());
     if (execValidas.length === 0) { setErro("Adicione pelo menos um item de execução."); return; }
 
@@ -160,6 +189,7 @@ export default function FormularioRelatorio() {
         nucleo,
         logradouro,
         municipio,
+        cep: normalizarCep(cep),
         equipe,
         enviado_por: enviadoPor,
         execucao: execValidas.map(r => ({
@@ -229,6 +259,7 @@ export default function FormularioRelatorio() {
                 setOcorrencias([]);
                 setObservacoes([]);
                 setFotos([]);
+                setCep("");
                 setNucleo(""); setLogradouro(""); setMunicipio(""); setEquipe("");
               }}
             >
@@ -315,6 +346,20 @@ export default function FormularioRelatorio() {
 
             {/* Logradouro + Município + Equipe */}
             <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">CEP</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={cep}
+                    onChange={e => setCep(normalizarCep(e.target.value))}
+                    placeholder="00000000"
+                    className="bg-secondary border-border text-sm"
+                  />
+                  <Button type="button" variant="outline" onClick={buscarCep} disabled={buscandoCep} className="shrink-0">
+                    {buscandoCep ? "..." : "Buscar"}
+                  </Button>
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Logradouro</label>
                 {nucleoSel?.logradouros?.length ? (
@@ -497,3 +542,4 @@ export default function FormularioRelatorio() {
     </div>
   );
 }
+

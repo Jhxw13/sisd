@@ -6,8 +6,10 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.request import Request, urlopen
 
 from docx import Document
 from docx.enum.section import WD_SECTION_START
@@ -18,6 +20,7 @@ from docx.shared import Cm, Pt, RGBColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from input_layer import extrair_primeira_equipe
 
@@ -655,7 +658,7 @@ class ReportGenerator:
 
     def generate_nucleus_reports(self, parsed: dict, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
-        by_nucleus: Dict[str, dict] = defaultdict(lambda: {"items": [], "fronts": [], "occurrences": []})
+        by_nucleus: Dict[str, dict] = defaultdict(lambda: {"items": [], "fronts": [], "occurrences": [], "photos": []})
         fronts_by_id = {f["id_frente"]: f for f in parsed["frentes"]}
 
         for item in parsed["execucao"]:
@@ -672,7 +675,14 @@ class ReportGenerator:
             if front not in bucket["fronts"]:
                 bucket["fronts"].append(front)
 
+        all_photos = parsed.get("fotos", []) or []
         for nucleus, data in by_nucleus.items():
+            nucleus_key = strip_accents(str(nucleus or "").lower()).strip()
+            photos = [
+                p for p in all_photos
+                if not p.get("nucleo") or strip_accents(str(p.get("nucleo", "")).lower()).strip() == nucleus_key
+            ]
+            data["photos"] = photos or list(all_photos)
             md = self._build_markdown_report(parsed, nucleus, data)
             safe = slugify(nucleus)
             (output_dir / f"{safe}.md").write_text(md, encoding="utf-8")
@@ -727,6 +737,16 @@ class ReportGenerator:
         if obs:
             lines.extend(["", "## Observações operacionais"])
             lines.extend([f"- {o}" for o in obs])
+        photos = data.get("photos", []) or []
+        if photos:
+            lines.extend(["", "## Base fotografica"])
+            for p in photos[:8]:
+                nome = str(p.get("nome_arquivo") or "foto")
+                url = str(p.get("url") or "").strip()
+                if not url:
+                    continue
+                lines.append(f"![{nome}]({url})")
+                lines.append(f"- {nome}: {url}")
         lines.extend([
             "",
             "## Conclusão",
@@ -958,11 +978,31 @@ class ReportGenerator:
         h2 = ParagraphStyle("CustomH2", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=11.5, textColor="#00529B", spaceBefore=10, spaceAfter=4)
         body = ParagraphStyle("CustomBody", parent=styles["BodyText"], fontName="Helvetica", fontSize=9.2, leading=12)
         story = []
+        max_w = A4[0] - (4 * cm)
+        max_h = 11 * cm
         for line in markdown_text.splitlines():
             if line.startswith("# "):
                 story.append(Paragraph(line[2:], title_style))
             elif line.startswith("## "):
                 story.append(Paragraph(line[3:], h2))
+            elif line.startswith("![") and "](" in line and line.endswith(")"):
+                alt = line[2:line.find("]")] or "Foto"
+                url = line[line.find("(") + 1:-1].strip()
+                if not url:
+                    continue
+                try:
+                    req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urlopen(req, timeout=8) as resp:
+                        raw = resp.read()
+                    img = RLImage(BytesIO(raw))
+                    scale = min(max_w / max(float(img.drawWidth or 1), 1.0), max_h / max(float(img.drawHeight or 1), 1.0), 1.0)
+                    img.drawWidth = float(img.drawWidth) * scale
+                    img.drawHeight = float(img.drawHeight) * scale
+                    story.append(img)
+                    story.append(Paragraph(alt, body))
+                    story.append(Spacer(1, 0.15 * cm))
+                except Exception:
+                    story.append(Paragraph(f"Foto: {url}", body))
             elif line.startswith("- "):
                 story.append(Paragraph(f"• {line[2:]}", body))
             elif line.strip():
