@@ -24,7 +24,11 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
       onMouseLeave={() => setShowTooltip(false)}
       onFocus={() => setShowTooltip(true)}
       onBlur={() => setShowTooltip(false)}
-      className={cn("glass-surface overflow-visible rounded-2xl p-6 group relative", onClick ? "cursor-pointer" : "cursor-default")}
+      className={cn(
+        "glass-surface overflow-visible rounded-2xl p-6 group relative",
+        onClick ? "cursor-pointer" : "cursor-default",
+        showTooltip ? "z-50" : "z-0"
+      )}
     >
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
@@ -48,7 +52,7 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
       </div>
       {tooltipContent && showTooltip && (
         <div
-          className="absolute left-3 right-3 bottom-full mb-2 z-30 rounded-xl border border-primary/40 p-3 text-xs shadow-2xl isolate"
+          className="absolute left-3 right-3 bottom-full mb-2 z-[80] rounded-xl border border-primary/40 p-3 text-xs shadow-2xl isolate"
           style={{ background: "#020617", opacity: 1, backdropFilter: "none" }}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
