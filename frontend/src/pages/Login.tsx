@@ -113,14 +113,8 @@ export default function Login() {
             </form>
           </div>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Operário de campo?{" "}
-          <a href="/relatorio" className="text-primary hover:underline">
-            Preencher relatório →
-          </a>
-        </p>
       </motion.div>
     </div>
   );
 }
+
