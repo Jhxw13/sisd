@@ -47,7 +47,11 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {tooltipContent && showTooltip && (
-        <div className="pointer-events-none absolute left-3 right-3 top-full mt-2 z-20 rounded-xl border border-border bg-popover p-3 text-xs shadow-xl">
+        <div
+          className="absolute left-3 right-3 bottom-full mb-2 z-30 rounded-xl border border-border bg-popover p-3 text-xs shadow-xl"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
           {tooltipContent}
         </div>
       )}
