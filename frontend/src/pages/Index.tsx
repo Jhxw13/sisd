@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
 import { DataRow, SectionHeader, StatusBadge } from "@/components/DataDisplay";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiFetch } from "@/lib/api";
-import { AlertTriangle, Boxes, HardHat, Layers, Network, RotateCcw, SlidersHorizontal, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Boxes, Check, ChevronDown, HardHat, Layers, Network, RotateCcw, SlidersHorizontal, Users, Wrench } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -135,6 +138,10 @@ export default function Dashboard() {
   const [filtroDataAte, setFiltroDataAte] = useState("");
   const [filtroNucleo, setFiltroNucleo] = useState<string[]>([]);
   const [filtroEquipe, setFiltroEquipe] = useState<string[]>([]);
+  const [draftDataDe, setDraftDataDe] = useState("");
+  const [draftDataAte, setDraftDataAte] = useState("");
+  const [draftNucleo, setDraftNucleo] = useState<string[]>([]);
+  const [draftEquipe, setDraftEquipe] = useState<string[]>([]);
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroTipoOcorr, setFiltroTipoOcorr] = useState("");
 
@@ -223,6 +230,21 @@ export default function Dashboard() {
     (filtroNucleo.length > 0 ? 1 : 0) +
     (filtroEquipe.length > 0 ? 1 : 0);
 
+  const toggleDraftNucleo = (nucleo: string) => {
+    setDraftNucleo((prev) => (prev.includes(nucleo) ? prev.filter((v) => v !== nucleo) : [...prev, nucleo]));
+  };
+
+  const toggleDraftEquipe = (equipe: string) => {
+    setDraftEquipe((prev) => (prev.includes(equipe) ? prev.filter((v) => v !== equipe) : [...prev, equipe]));
+  };
+
+  const aplicarFiltrosBase = () => {
+    setFiltroDataDe(draftDataDe);
+    setFiltroDataAte(draftDataAte);
+    setFiltroNucleo(draftNucleo);
+    setFiltroEquipe(draftEquipe);
+  };
+
   return (
     <AppLayout
       title="Painel Gerencial de Evolucao de Obra"
@@ -248,6 +270,10 @@ export default function Dashboard() {
                   setFiltroDataAte("");
                   setFiltroNucleo([]);
                   setFiltroEquipe([]);
+                  setDraftDataDe("");
+                  setDraftDataAte("");
+                  setDraftNucleo([]);
+                  setDraftEquipe([]);
                   setFiltroCategoria("");
                   setFiltroTipoOcorr("");
                 }}
@@ -257,37 +283,70 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
-              <input type="date" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
-              <input type="date" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
-              <select
-                multiple
-                value={filtroNucleo}
-                onChange={(e) => setFiltroNucleo(Array.from(e.target.selectedOptions, (opt) => opt.value))}
-                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground min-h-10"
-                title="Segure Ctrl para selecionar mais de um nucleo"
-              >
-                {opcoesNucleo.map((nucleo) => (
-                  <option key={nucleo} value={nucleo}>
-                    {nucleo}
-                  </option>
-                ))}
-              </select>
-              <select
-                multiple
-                value={filtroEquipe}
-                onChange={(e) => setFiltroEquipe(Array.from(e.target.selectedOptions, (opt) => opt.value))}
-                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground min-h-10"
-                title="Segure Ctrl para selecionar mais de uma equipe"
-              >
-                {opcoesEquipe.map((equipe) => (
-                  <option key={equipe} value={equipe}>
-                    {equipe}
-                  </option>
-                ))}
-              </select>
+              <input type="date" value={draftDataDe} onChange={(e) => setDraftDataDe(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <input type="date" value={draftDataAte} onChange={(e) => setDraftDataAte(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="secondary" className="justify-between border border-border">
+                    {draftNucleo.length > 0 ? `${draftNucleo.length} nucleo(s)` : "Selecionar nucleos"}
+                    <ChevronDown className="w-4 h-4 opacity-70" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-2 bg-[#0b1628] border border-[#1f2c46] text-foreground">
+                  <div className="max-h-56 overflow-auto space-y-1 pr-1">
+                    {opcoesNucleo.map((nucleo) => {
+                      const checked = draftNucleo.includes(nucleo);
+                      return (
+                        <button
+                          type="button"
+                          key={nucleo}
+                          onClick={() => toggleDraftNucleo(nucleo)}
+                          className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/5 text-left"
+                        >
+                          <Checkbox checked={checked} />
+                          <span className="text-sm flex-1 truncate">{nucleo}</span>
+                          {checked && <Check className="w-3.5 h-3.5 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="secondary" className="justify-between border border-border">
+                    {draftEquipe.length > 0 ? `${draftEquipe.length} equipe(s)` : "Selecionar equipes"}
+                    <ChevronDown className="w-4 h-4 opacity-70" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-2 bg-[#0b1628] border border-[#1f2c46] text-foreground">
+                  <div className="max-h-56 overflow-auto space-y-1 pr-1">
+                    {opcoesEquipe.map((equipe) => {
+                      const checked = draftEquipe.includes(equipe);
+                      return (
+                        <button
+                          type="button"
+                          key={equipe}
+                          onClick={() => toggleDraftEquipe(equipe)}
+                          className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/5 text-left"
+                        >
+                          <Checkbox checked={checked} />
+                          <span className="text-sm flex-1 truncate">{equipe}</span>
+                          {checked && <Check className="w-3.5 h-3.5 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Comparativo: segure Ctrl e clique para selecionar multiplos nucleos/equipes.
+              Selecione os itens e clique em aplicar para atualizar o painel.
+            </div>
+            <div className="mt-3">
+              <Button type="button" onClick={aplicarFiltrosBase}>
+                Aplicar filtros
+              </Button>
             </div>
           </div>
 
