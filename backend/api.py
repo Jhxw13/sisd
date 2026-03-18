@@ -515,6 +515,17 @@ def get_dashboard():
         except Exception:
             return 0.0
 
+    def _servico_key(nome: str) -> str:
+        raw = str(nome or "").strip()
+        if not raw:
+            return "(sem categoria)"
+        k = normalizar_texto(raw) if raw else ""
+        k = re.sub(r"\s+", " ", k or "").strip().lower()
+        # unifica variacoes conhecidas de escrita
+        if k in {"prolongamento de rede de agua", "prolongamento da rede de agua"}:
+            return "prolongamento de rede de água"
+        return k or "(sem categoria)"
+
     # Bases auxiliares
     entrada_by_id = {e["id"]: e for e in entradas}
     exec_by_entrada: dict[str, list] = defaultdict(list)
@@ -529,7 +540,7 @@ def get_dashboard():
     total_ocorr = len(ocorr_all)
     total_itens = len(exec_all)
     total_qtd = sum(_qty(r.get("quantidade")) for r in exec_all)
-    categorias_ativas = len({(r.get("servico") or "").strip().lower() for r in exec_all if (r.get("servico") or "").strip()})
+    categorias_ativas = len({_servico_key(r.get("servico")) for r in exec_all if (r.get("servico") or "").strip()})
     equipes_ativas = len({(e.get("equipe") or "").strip().lower() for e in entradas if (e.get("equipe") or "").strip()})
     nucleos_ativos = len({(e.get("nucleo") or "").strip().lower() for e in entradas if (e.get("nucleo") or "").strip()})
     frentes_sem_producao = sum(1 for e in entradas if len(exec_by_entrada.get(e["id"], [])) == 0)
@@ -563,11 +574,15 @@ def get_dashboard():
     # Visão por categoria
     visao_categoria: dict[str, dict[str, Any]] = {}
     for r in exec_all:
-        c = (r.get("servico") or "").strip() or "(sem categoria)"
-        if c not in visao_categoria:
-            visao_categoria[c] = {"categoria": c, "registros": 0, "qtd_total": 0.0, "status": "Ativa"}
-        visao_categoria[c]["registros"] += 1
-        visao_categoria[c]["qtd_total"] += _qty(r.get("quantidade"))
+        c_display = (r.get("servico") or "").strip() or "(sem categoria)"
+        c_key = _servico_key(c_display)
+        if c_key not in visao_categoria:
+            visao_categoria[c_key] = {"categoria": c_display, "registros": 0, "qtd_total": 0.0, "status": "Ativa"}
+        # privilegia rótulo mais "completo" para exibicao
+        if len(c_display) > len(str(visao_categoria[c_key].get("categoria") or "")):
+            visao_categoria[c_key]["categoria"] = c_display
+        visao_categoria[c_key]["registros"] += 1
+        visao_categoria[c_key]["qtd_total"] += _qty(r.get("quantidade"))
     visao_categoria_rows = []
     base_part = total_qtd if total_qtd > 0 else float(max(1, total_itens))
     for row in visao_categoria.values():
@@ -581,10 +596,13 @@ def get_dashboard():
     servico_volume: dict[str, dict[str, Any]] = {}
     for r in exec_all:
         serv = (r.get("servico") or "").strip() or "(sem servico)"
+        serv_key = _servico_key(serv)
         uni = (r.get("unidade") or "un").strip() or "un"
-        key = f"{serv}||{uni}"
+        key = f"{serv_key}||{uni}"
         if key not in servico_volume:
             servico_volume[key] = {"servico": serv, "unidade": uni, "qtd_total": 0.0, "registros": 0}
+        if len(serv) > len(str(servico_volume[key].get("servico") or "")):
+            servico_volume[key]["servico"] = serv
         servico_volume[key]["qtd_total"] += _qty(r.get("quantidade"))
         servico_volume[key]["registros"] += 1
     servicos_volume_rows = sorted(
@@ -635,8 +653,10 @@ def get_dashboard():
     serie_temporal = [{"data":k,"total":v} for k,v in sorted(data_counter.items())]
 
     # Rankings e leitura gerencial
-    servico_counter = Counter((r.get("servico") or "").strip() for r in exec_all if (r.get("servico") or "").strip())
+    servico_counter = Counter(_servico_key((r.get("servico") or "").strip()) for r in exec_all if (r.get("servico") or "").strip())
+    label_por_key = { _servico_key(v.get("categoria")): v.get("categoria") for v in visao_categoria.values() }
     maior_categoria = servico_counter.most_common(1)[0][0] if servico_counter else "-"
+    maior_categoria = label_por_key.get(maior_categoria, maior_categoria)
     maior_nucleo = visao_nucleo_rows[0]["nucleo"] if visao_nucleo_rows else "-"
 
     leitura_gerencial = [
@@ -685,7 +705,7 @@ def get_dashboard():
         "visao_equipe": visao_equipe_rows[:top_n],
         "ocorrencias_por_tipo": ocorrencias_por_tipo,
         "leitura_gerencial": leitura_gerencial,
-        "ranking_servicos": [{"servico":k,"total":v} for k,v in servico_counter.most_common(top_n)],
+        "ranking_servicos": [{"servico":label_por_key.get(k, k),"total":v} for k,v in servico_counter.most_common(top_n)],
         "serie_temporal": serie_temporal,
         "recentes": recentes,
         "filtros_ativos": {"data_de":data_de,"data_ate":data_ate,"nucleo":nucleo,"municipio":municipio,"equipe":equipe,"top_n":top_n},

@@ -180,6 +180,14 @@ export default function Dashboard() {
     return rows.filter((r) => r.tipo === filtroTipoOcorr);
   }, [data?.ocorrencias_por_tipo, filtroTipoOcorr]);
 
+  const categoriaColorMap = useMemo(() => {
+    const mp: Record<string, string> = {};
+    visaoCategoriaRows.forEach((r, i) => {
+      mp[r.categoria] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+    });
+    return mp;
+  }, [visaoCategoriaRows]);
+
   const qtdTooltipRows = useMemo(() => {
     const total = servicosRows.reduce((acc, r) => acc + Number(r.qtd_total || 0), 0);
     return servicosRows.slice(0, 8).map((r) => {
@@ -342,10 +350,10 @@ export default function Dashboard() {
               <div className="mt-2">
                 {visaoCategoriaRows.map((r) => (
                   <DataRow key={r.categoria} onClick={() => setFiltroCategoria((prev) => (prev === r.categoria ? "" : r.categoria))}>
-                    <span className="text-sm text-foreground w-44 truncate">{r.categoria}</span>
+                    <span className="text-sm w-44 truncate" style={{ color: categoriaColorMap[r.categoria] || "hsl(var(--foreground))" }}>{r.categoria}</span>
                     <span className="text-xs text-muted-foreground w-14">{r.registros}</span>
                     <span className="text-xs text-muted-foreground w-16">{fmt(r.qtd_total)}</span>
-                    <span className="text-xs text-primary w-14">{r.participacao}%</span>
+                    <span className="text-xs w-14" style={{ color: categoriaColorMap[r.categoria] || "hsl(var(--primary))" }}>{r.participacao}%</span>
                     <span className="text-xs text-accent ml-auto">{r.status}</span>
                   </DataRow>
                 ))}
