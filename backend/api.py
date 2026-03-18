@@ -522,7 +522,12 @@ def get_dashboard():
         k = normalizar_texto(raw) if raw else ""
         k = re.sub(r"\s+", " ", k or "").strip().lower()
         # unifica variacoes conhecidas de escrita
-        if k in {"prolongamento de rede de agua", "prolongamento da rede de agua"}:
+        if k in {
+            "prolongamento de rede",
+            "prolongamento da rede",
+            "prolongamento de rede de agua",
+            "prolongamento da rede de agua",
+        }:
             return "prolongamento de rede de água"
         return k or "(sem categoria)"
 
