@@ -32,20 +32,17 @@ export async function openStreetViewPopup(input: StreetViewInput): Promise<void>
   const address = buildAddress(input);
   if (!address) return;
 
-  const popup = window.open("about:blank", "_blank", "noopener,noreferrer,width=1200,height=800");
   const fallback = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-  let targetUrl = fallback;
+  // Abre imediatamente com fallback para evitar aba em branco quando o browser
+  // bloqueia redirecionamento tardio de popups assíncronos.
+  const popup = window.open(fallback, "_blank", "width=1200,height=800");
+  if (!popup) return;
 
   try {
     const geo = await geocodeAddress(address);
     if (geo?.lat && geo?.lon) {
-      targetUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${geo.lat},${geo.lon}`;
+      const panoUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${geo.lat},${geo.lon}`;
+      popup.location.href = panoUrl;
     }
-  } catch {
-    targetUrl = fallback;
-  }
-
-  if (popup) popup.location.href = targetUrl;
-  else window.open(targetUrl, "_blank");
+  } catch {}
 }
-
