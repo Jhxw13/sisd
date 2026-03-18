@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
 import { DataRow, SectionHeader, StatusBadge } from "@/components/DataDisplay";
 import { apiFetch } from "@/lib/api";
-import { AlertTriangle, Boxes, HardHat, Layers, Network, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Boxes, HardHat, Layers, Network, RotateCcw, SlidersHorizontal, Users, Wrench } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -94,18 +94,29 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
+  const [filtroNucleo, setFiltroNucleo] = useState("");
+  const [filtroEquipe, setFiltroEquipe] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroTipoOcorr, setFiltroTipoOcorr] = useState("");
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        setData(await apiFetch("/api/dashboard?top_n=20"));
+        const p = new URLSearchParams({ top_n: "30" });
+        if (filtroDataDe) p.set("data_de", filtroDataDe);
+        if (filtroDataAte) p.set("data_ate", filtroDataAte);
+        if (filtroNucleo) p.set("nucleo", filtroNucleo);
+        if (filtroEquipe) p.set("equipe", filtroEquipe);
+        setData(await apiFetch(`/api/dashboard?${p.toString()}`));
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [filtroDataDe, filtroDataAte, filtroNucleo, filtroEquipe]);
 
   const riscoBadge = useMemo(() => {
     const r = (data?.meta?.risco_operacional || "").toUpperCase();
@@ -114,13 +125,33 @@ export default function Dashboard() {
     return "bg-accent/15 text-accent";
   }, [data?.meta?.risco_operacional]);
 
+  const visaoNucleoRows = useMemo(() => (data?.visao_nucleo || []).slice(0, 8), [data?.visao_nucleo]);
+  const visaoEquipeRows = useMemo(() => (data?.visao_equipe || []).slice(0, 8), [data?.visao_equipe]);
+  const visaoCategoriaRows = useMemo(() => {
+    const rows = data?.visao_categoria || [];
+    if (!filtroCategoria) return rows.slice(0, 8);
+    return rows.filter((r) => r.categoria === filtroCategoria).slice(0, 8);
+  }, [data?.visao_categoria, filtroCategoria]);
+  const servicosRows = useMemo(() => {
+    const rows = data?.servicos_volume || [];
+    if (!filtroCategoria) return rows;
+    return rows.filter((r) => r.servico === filtroCategoria);
+  }, [data?.servicos_volume, filtroCategoria]);
+  const ocorrRows = useMemo(() => {
+    const rows = data?.ocorrencias_por_tipo || [];
+    if (!filtroTipoOcorr) return rows;
+    return rows.filter((r) => r.tipo === filtroTipoOcorr);
+  }, [data?.ocorrencias_por_tipo, filtroTipoOcorr]);
+
   const qtdTooltipRows = useMemo(() => {
-    const total = Number(data?.kpis?.qtd_total || 0);
-    return (data?.servicos_volume || []).slice(0, 8).map((r) => {
+    const total = servicosRows.reduce((acc, r) => acc + Number(r.qtd_total || 0), 0);
+    return servicosRows.slice(0, 8).map((r) => {
       const pct = total > 0 ? (Number(r.qtd_total || 0) / total) * 100 : 0;
       return { ...r, pct };
     });
-  }, [data?.servicos_volume, data?.kpis?.qtd_total]);
+  }, [servicosRows]);
+
+  const filtrosAtivos = [filtroDataDe, filtroDataAte, filtroNucleo, filtroEquipe, filtroCategoria, filtroTipoOcorr].filter(Boolean).length;
 
   return (
     <AppLayout
@@ -134,6 +165,35 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="space-y-6">
+          <div className="glass-surface rounded-2xl p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Filtros BI
+                {filtrosAtivos > 0 && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary">{filtrosAtivos} ativos</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroDataDe("");
+                  setFiltroDataAte("");
+                  setFiltroNucleo("");
+                  setFiltroEquipe("");
+                  setFiltroCategoria("");
+                  setFiltroTipoOcorr("");
+                }}
+                className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Limpar
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+              <input type="date" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <input type="date" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <input value={filtroNucleo} onChange={(e) => setFiltroNucleo(e.target.value)} placeholder="Filtrar núcleo" className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+              <input value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} placeholder="Filtrar equipe" className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
+            </div>
+          </div>
+
           <div className="glass-surface rounded-2xl p-5">
             <div className="text-xs text-muted-foreground">
               Data base: <span className="text-foreground">{data?.meta?.data_base || "-"}</span> | Gerado em:{" "}
@@ -179,7 +239,14 @@ export default function Dashboard() {
               <SectionHeader title="Visao por Nucleo" subtitle="Frentes, itens, ocorrencias e volume" />
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={(data?.visao_nucleo || []).slice(0, 8)}>
+                  <BarChart
+                    data={visaoNucleoRows}
+                    onClick={(st: any) => {
+                      const p = st?.activePayload?.[0]?.payload;
+                      if (!p?.nucleo) return;
+                      setFiltroNucleo((prev) => (prev === p.nucleo ? "" : p.nucleo));
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" />
                     <XAxis dataKey="nucleo" hide />
                     <YAxis stroke="hsl(215 15% 40%)" fontSize={11} tickLine={false} axisLine={false} />
@@ -189,7 +256,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
               <div className="mt-2">
-                {(data?.visao_nucleo || []).slice(0, 8).map((r) => (
+                {visaoNucleoRows.map((r) => (
                   <DataRow key={r.nucleo} onClick={() => navigate(`/historico?nucleo=${encodeURIComponent(r.nucleo)}`)}>
                     <span className="text-sm text-foreground w-40 truncate">{r.nucleo}</span>
                     <span className="text-xs text-muted-foreground w-16">{r.frentes}</span>
@@ -206,14 +273,26 @@ export default function Dashboard() {
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={(data?.visao_categoria || []).slice(0, 8)} dataKey="participacao" nameKey="categoria" innerRadius={52} outerRadius={90} paddingAngle={2} />
+                    <Pie
+                      data={visaoCategoriaRows}
+                      dataKey="participacao"
+                      nameKey="categoria"
+                      innerRadius={52}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      onClick={(entry: any) => {
+                        const categoria = entry?.categoria;
+                        if (!categoria) return;
+                        setFiltroCategoria((prev) => (prev === categoria ? "" : categoria));
+                      }}
+                    />
                     <Tooltip formatter={(v: any) => `${v}%`} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="mt-2">
-                {(data?.visao_categoria || []).slice(0, 8).map((r) => (
-                  <DataRow key={r.categoria}>
+                {visaoCategoriaRows.map((r) => (
+                  <DataRow key={r.categoria} onClick={() => setFiltroCategoria((prev) => (prev === r.categoria ? "" : r.categoria))}>
                     <span className="text-sm text-foreground w-44 truncate">{r.categoria}</span>
                     <span className="text-xs text-muted-foreground w-14">{r.registros}</span>
                     <span className="text-xs text-muted-foreground w-16">{fmt(r.qtd_total)}</span>
@@ -228,7 +307,15 @@ export default function Dashboard() {
               <SectionHeader title="Visao por Equipe" subtitle="Equipes com maior volume executado" />
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={(data?.visao_equipe || []).slice(0, 8)} layout="vertical">
+                  <BarChart
+                    data={visaoEquipeRows}
+                    layout="vertical"
+                    onClick={(st: any) => {
+                      const p = st?.activePayload?.[0]?.payload;
+                      if (!p?.equipe) return;
+                      setFiltroEquipe((prev) => (prev === p.equipe ? "" : p.equipe));
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" horizontal={false} />
                     <XAxis type="number" stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis type="category" dataKey="equipe" width={90} stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false} />
@@ -238,7 +325,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
               <div className="mt-2">
-                {(data?.visao_equipe || []).slice(0, 8).map((r, idx) => (
+                {visaoEquipeRows.map((r, idx) => (
                   <DataRow key={`${r.equipe}-${r.nucleo}-${idx}`} onClick={() => navigate(`/historico?equipe=${encodeURIComponent(r.equipe)}`)}>
                     <span className="text-sm text-foreground w-28 truncate">{r.equipe}</span>
                     <span className="text-xs text-muted-foreground w-28 truncate">{r.nucleo}</span>
@@ -252,8 +339,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="glass-surface rounded-2xl p-5">
               <SectionHeader title="Ocorrencias por Tipo" subtitle={`Radar operacional | ${data?.meta?.ocorrencias_por_frente || 0} por frente`} />
-              {(data?.ocorrencias_por_tipo || []).map((r, i) => (
-                <DataRow key={`${r.tipo}-${i}`} onClick={() => navigate(`/ocorrencias?q=${encodeURIComponent(r.tipo)}`)}>
+              {ocorrRows.map((r, i) => (
+                <DataRow key={`${r.tipo}-${i}`} onClick={() => setFiltroTipoOcorr((prev) => (prev === r.tipo ? "" : r.tipo))}>
                   <span className="text-sm text-foreground w-52 truncate">{r.tipo}</span>
                   <span className="font-mono-data text-xs text-primary w-14">{r.qtd}</span>
                   <span className="text-xs text-muted-foreground w-24">{r.leitura}</span>
@@ -275,7 +362,7 @@ export default function Dashboard() {
 
           <div className="glass-surface rounded-2xl p-5">
             <SectionHeader title="Total por Servico" subtitle="Volume consolidado por item e unidade" />
-            {(data?.servicos_volume || []).slice(0, 20).map((r, i) => (
+            {servicosRows.slice(0, 20).map((r, i) => (
               <DataRow key={`${r.servico}-${r.unidade}-${i}`} onClick={() => navigate(`/historico?q=${encodeURIComponent(r.servico)}`)}>
                 <span className="text-sm text-foreground w-64 truncate">{r.servico}</span>
                 <span className="text-xs text-muted-foreground w-20">{r.unidade}</span>
