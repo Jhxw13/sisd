@@ -38,8 +38,6 @@ export default function Gerencial() {
   const [topNDraft, setTopNDraft] = useState("10");
 
   // Filtros aplicados
-  const [obraFrom, setObraFrom]     = useState("");
-  const [obraTo, setObraTo]         = useState("");
   const [procFrom, setProcFrom]     = useState("");
   const [procTo, setProcTo]         = useState("");
   const [nucleo, setNucleo]         = useState<string[]>([]);
@@ -48,8 +46,6 @@ export default function Gerencial() {
   const [statusF, setStatusF]       = useState<string[]>([]);
 
   // Filtros em edicao (draft)
-  const [obraFromDraft, setObraFromDraft] = useState("");
-  const [obraToDraft, setObraToDraft] = useState("");
   const [procFromDraft, setProcFromDraft] = useState("");
   const [procToDraft, setProcToDraft] = useState("");
   const [nucleoDraft, setNucleoDraft] = useState<string[]>([]);
@@ -61,8 +57,6 @@ export default function Gerencial() {
     setLoading(true);
     try {
       const p = new URLSearchParams({top_n:topN});
-      if (obraFrom)  p.set("obra_from",obraFrom);
-      if (obraTo)    p.set("obra_to",obraTo);
       if (procFrom)  p.set("processed_from",procFrom);
       if (procTo)    p.set("processed_to",procTo);
       nucleo.forEach((v) => p.append("nucleo", v));
@@ -71,7 +65,7 @@ export default function Gerencial() {
       statusF.forEach((v) => p.append("status", v));
       setData(await apiFetch(`/api/gerencial?${p}`));
     } finally { setLoading(false); }
-  }, [obraFrom,obraTo,procFrom,procTo,nucleo,municipio,equipe,statusF,topN]);
+  }, [procFrom,procTo,nucleo,municipio,equipe,statusF,topN]);
 
   useEffect(()=>{ carregar(); },[carregar]);
 
@@ -91,8 +85,6 @@ export default function Gerencial() {
   const equipeOptions = useMemo(() => Array.from(new Set([...(data?.ranking_equipes || []).map((r) => r.equipe), ...equipeDraft])).filter(Boolean), [data?.ranking_equipes, equipeDraft]);
 
   function aplicarFiltros() {
-    setObraFrom(obraFromDraft);
-    setObraTo(obraToDraft);
     setProcFrom(procFromDraft);
     setProcTo(procToDraft);
     setNucleo(nucleoDraft);
@@ -103,9 +95,9 @@ export default function Gerencial() {
   }
 
   function limparFiltros() {
-    setObraFrom("");setObraTo("");setProcFrom("");setProcTo("");
+    setProcFrom("");setProcTo("");
     setNucleo([]);setMunicipio([]);setEquipe([]);setStatusF([]);
-    setObraFromDraft("");setObraToDraft("");setProcFromDraft("");setProcToDraft("");
+    setProcFromDraft("");setProcToDraft("");
     setNucleoDraft([]);setMunicipioDraft([]);setEquipeDraft([]);setStatusFDraft([]);
     setTopN("10");setTopNDraft("10");
   }
@@ -134,14 +126,6 @@ export default function Gerencial() {
               <Filter className="w-3.5 h-3.5"/> Filtros gerenciais
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Obra - de</label>
-                <Input type="date" value={obraFromDraft} onChange={e=>setObraFromDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Obra - ate</label>
-                <Input type="date" value={obraToDraft} onChange={e=>setObraToDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
-              </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Processado - de</label>
                 <Input type="date" value={procFromDraft} onChange={e=>setProcFromDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
@@ -214,7 +198,7 @@ export default function Gerencial() {
                 icon={<AlertTriangle className="w-5 h-5"/>}
                 onClick={() => navigate("/monitoramento")}
                 changeType={kpis.nao_mapeados>0?"negative":"positive"}/>
-              <MetricCard label="Período" value={data?.filtros?.obra_from ? `${data.filtros.obra_from}` : "Completo"}
+              <MetricCard label="Periodo processado" value={procFrom || procTo ? `${procFrom || "..."} a ${procTo || "..."}` : "Completo"}
                 icon={<TrendingUp className="w-5 h-5"/>}/>
             </div>
 
@@ -319,4 +303,5 @@ export default function Gerencial() {
     </AppLayout>
   );
 }
+
 
