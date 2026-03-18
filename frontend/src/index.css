@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 25% 8%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 20% 12%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 215 90% 60%;
+    --primary-foreground: 220 25% 8%;
+
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 210 20% 85%;
+
+    --muted: 220 15% 15%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 155 60% 55%;
+    --accent-foreground: 220 25% 8%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 210 20% 95%;
+
+    --border: 220 15% 16%;
+    --input: 220 15% 18%;
+    --ring: 215 90% 60%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 22% 10%;
+    --sidebar-foreground: 210 15% 70%;
+    --sidebar-primary: 215 90% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 15%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 220 15% 14%;
+    --sidebar-ring: 215 90% 60%;
+
+    /* Custom tokens */
+    --surface: 220 20% 12%;
+    --surface-hover: 220 18% 16%;
+    --surface-active: 220 18% 20%;
+    --border-subtle: 220 15% 16%;
+    --border-hover: 220 15% 22%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 220 25% 8%;
+    --info: 215 90% 60%;
+    --success: 155 60% 55%;
+
+    /* Shadows */
+    --shadow-card: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 25px -5px rgba(0,0,0,0.5), 0 4px 10px -2px rgba(0,0,0,0.2);
+    --shadow-elevated: 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -10px rgba(0,0,0,0.6), 0 8px 16px -4px rgba(0,0,0,0.3);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.04em;
+    font-weight: 500;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glass-surface {
+    @apply bg-card border border-border relative overflow-hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .glass-surface::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 40%);
+  }
+
+  .glass-elevated {
+    @apply bg-card border border-border relative overflow-hidden;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .edge-highlight {
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .text-gradient-primary {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(215 80% 72%) 100%);
+  }
+
+  .active-press {
+    @apply transition-transform;
+  }
+  .active-press:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(220 15% 22%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 15% 30%);
+}

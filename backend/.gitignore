@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+saidas/
+BASE_MESTRA/
+*.xlsx
+*.pdf
+*.docx
