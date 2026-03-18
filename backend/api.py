@@ -497,12 +497,30 @@ def get_dashboard():
     equipe   = request.args.get("equipe","").strip()
     top_n    = min(50, max(3, int(request.args.get("top_n",10))))
 
+    def _multi_values(name: str) -> list[str]:
+        raw_list = request.args.getlist(name) or []
+        out: list[str] = []
+        for raw in raw_list:
+            parts = str(raw or "").split(",")
+            for p in parts:
+                v = str(p or "").strip()
+                if v:
+                    out.append(v)
+        return list(dict.fromkeys(out))
+
+    nucleos = _multi_values("nucleo")
+    equipes = _multi_values("equipe")
+    if not nucleos and nucleo:
+        nucleos = [nucleo]
+    if not equipes and equipe:
+        equipes = [equipe]
+
     q = supabase.table("entradas").select("id,protocolo,nucleo,municipio,equipe,data_referencia,status,created_at")
     if data_de:   q = q.gte("data_referencia",data_de)
     if data_ate:  q = q.lte("data_referencia",data_ate)
-    if nucleo:    q = q.ilike("nucleo",f"%{nucleo}%")
+    if nucleos:   q = q.in_("nucleo", nucleos)
     if municipio: q = q.ilike("municipio",f"%{municipio}%")
-    if equipe:    q = q.ilike("equipe",f"%{equipe}%")
+    if equipes:   q = q.in_("equipe", equipes)
     entradas = q.execute().data or []
 
     ids = [e["id"] for e in entradas]
@@ -726,7 +744,7 @@ def get_dashboard():
         "ranking_servicos": [{"servico":label_por_key.get(k, k),"total":v} for k,v in servico_counter.most_common(top_n)],
         "serie_temporal": serie_temporal,
         "recentes": recentes,
-        "filtros_ativos": {"data_de":data_de,"data_ate":data_ate,"nucleo":nucleo,"municipio":municipio,"equipe":equipe,"top_n":top_n},
+        "filtros_ativos": {"data_de":data_de,"data_ate":data_ate,"nucleo":nucleos,"municipio":municipio,"equipe":equipes,"top_n":top_n},
     })
 
 @app.get("/api/ocorrencias")

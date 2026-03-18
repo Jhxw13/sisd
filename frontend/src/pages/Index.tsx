@@ -133,8 +133,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filtroDataDe, setFiltroDataDe] = useState("");
   const [filtroDataAte, setFiltroDataAte] = useState("");
-  const [filtroNucleo, setFiltroNucleo] = useState("");
-  const [filtroEquipe, setFiltroEquipe] = useState("");
+  const [filtroNucleo, setFiltroNucleo] = useState<string[]>([]);
+  const [filtroEquipe, setFiltroEquipe] = useState<string[]>([]);
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroTipoOcorr, setFiltroTipoOcorr] = useState("");
 
@@ -145,8 +145,8 @@ export default function Dashboard() {
         const p = new URLSearchParams({ top_n: "30" });
         if (filtroDataDe) p.set("data_de", filtroDataDe);
         if (filtroDataAte) p.set("data_ate", filtroDataAte);
-        if (filtroNucleo) p.set("nucleo", filtroNucleo);
-        if (filtroEquipe) p.set("equipe", filtroEquipe);
+        filtroNucleo.forEach((n) => p.append("nucleo", n));
+        filtroEquipe.forEach((e) => p.append("equipe", e));
         setData(await apiFetch(`/api/dashboard?${p.toString()}`));
       } finally {
         setLoading(false);
@@ -218,7 +218,10 @@ export default function Dashboard() {
     });
   }, [servicosRows]);
 
-  const filtrosAtivos = [filtroDataDe, filtroDataAte, filtroNucleo, filtroEquipe, filtroCategoria, filtroTipoOcorr].filter(Boolean).length;
+  const filtrosAtivos =
+    [filtroDataDe, filtroDataAte, filtroCategoria, filtroTipoOcorr].filter(Boolean).length +
+    (filtroNucleo.length > 0 ? 1 : 0) +
+    (filtroEquipe.length > 0 ? 1 : 0);
 
   return (
     <AppLayout
@@ -243,8 +246,8 @@ export default function Dashboard() {
                 onClick={() => {
                   setFiltroDataDe("");
                   setFiltroDataAte("");
-                  setFiltroNucleo("");
-                  setFiltroEquipe("");
+                  setFiltroNucleo([]);
+                  setFiltroEquipe([]);
                   setFiltroCategoria("");
                   setFiltroTipoOcorr("");
                 }}
@@ -257,11 +260,12 @@ export default function Dashboard() {
               <input type="date" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
               <input type="date" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground" />
               <select
+                multiple
                 value={filtroNucleo}
-                onChange={(e) => setFiltroNucleo(e.target.value)}
-                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground"
+                onChange={(e) => setFiltroNucleo(Array.from(e.target.selectedOptions, (opt) => opt.value))}
+                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground min-h-10"
+                title="Segure Ctrl para selecionar mais de um nucleo"
               >
-                <option value="">Todos os nucleos</option>
                 {opcoesNucleo.map((nucleo) => (
                   <option key={nucleo} value={nucleo}>
                     {nucleo}
@@ -269,17 +273,21 @@ export default function Dashboard() {
                 ))}
               </select>
               <select
+                multiple
                 value={filtroEquipe}
-                onChange={(e) => setFiltroEquipe(e.target.value)}
-                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground"
+                onChange={(e) => setFiltroEquipe(Array.from(e.target.selectedOptions, (opt) => opt.value))}
+                className="bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground min-h-10"
+                title="Segure Ctrl para selecionar mais de uma equipe"
               >
-                <option value="">Todas as equipes</option>
                 {opcoesEquipe.map((equipe) => (
                   <option key={equipe} value={equipe}>
                     {equipe}
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              Comparativo: segure Ctrl e clique para selecionar multiplos nucleos/equipes.
             </div>
           </div>
 
