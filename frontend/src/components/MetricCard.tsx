@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -13,11 +14,16 @@ interface MetricCardProps {
 }
 
 export function MetricCard({ label, value, change, changeType = "neutral", icon, subtitle, onClick, tooltipContent }: MetricCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
   return (
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onClick}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onFocus={() => setShowTooltip(true)}
+      onBlur={() => setShowTooltip(false)}
       className={cn("glass-surface overflow-visible rounded-2xl p-6 group relative", onClick ? "cursor-pointer" : "cursor-default")}
     >
       <div className="relative z-10">
@@ -40,8 +46,8 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
         <h3 className="text-2xl font-medium tracking-tighter text-foreground font-mono-data">{value}</h3>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-      {tooltipContent && (
-        <div className="pointer-events-none hidden group-hover:block absolute left-3 right-3 top-full mt-2 z-20 rounded-xl border border-border bg-popover p-3 text-xs shadow-xl">
+      {tooltipContent && showTooltip && (
+        <div className="pointer-events-none absolute left-3 right-3 top-full mt-2 z-20 rounded-xl border border-border bg-popover p-3 text-xs shadow-xl">
           {tooltipContent}
         </div>
       )}

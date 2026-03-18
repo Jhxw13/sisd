@@ -201,6 +201,9 @@ export default function Dashboard() {
               <span className="text-foreground">{data?.meta?.frentes_sem_producao || 0}</span> | Risco operacional:{" "}
               <span className={`px-2 py-0.5 rounded-full ml-1 ${riscoBadge}`}>{data?.meta?.risco_operacional || "-"}</span>
             </div>
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              Interacao BI: clique em barras/fatias para aplicar filtros cruzados no painel.
+            </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -241,17 +244,22 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={visaoNucleoRows}
-                    onClick={(st: any) => {
-                      const p = st?.activePayload?.[0]?.payload;
-                      if (!p?.nucleo) return;
-                      setFiltroNucleo((prev) => (prev === p.nucleo ? "" : p.nucleo));
-                    }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" />
                     <XAxis dataKey="nucleo" hide />
                     <YAxis stroke="hsl(215 15% 40%)" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip />
-                    <Bar dataKey="qtd_total" name="Qtd Total" fill="hsl(205 85% 56%)" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="qtd_total"
+                      name="Qtd Total"
+                      fill="hsl(205 85% 56%)"
+                      radius={[4, 4, 0, 0]}
+                      onClick={(p: any) => {
+                        const nucleo = p?.nucleo;
+                        if (!nucleo) return;
+                        setFiltroNucleo((prev) => (prev === nucleo ? "" : nucleo));
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -310,17 +318,21 @@ export default function Dashboard() {
                   <BarChart
                     data={visaoEquipeRows}
                     layout="vertical"
-                    onClick={(st: any) => {
-                      const p = st?.activePayload?.[0]?.payload;
-                      if (!p?.equipe) return;
-                      setFiltroEquipe((prev) => (prev === p.equipe ? "" : p.equipe));
-                    }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" horizontal={false} />
                     <XAxis type="number" stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis type="category" dataKey="equipe" width={90} stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false} />
                     <Tooltip />
-                    <Bar dataKey="qtd_total" fill="hsl(152 63% 43%)" radius={[0, 4, 4, 0]} />
+                    <Bar
+                      dataKey="qtd_total"
+                      fill="hsl(152 63% 43%)"
+                      radius={[0, 4, 4, 0]}
+                      onClick={(p: any) => {
+                        const equipe = p?.equipe;
+                        if (!equipe) return;
+                        setFiltroEquipe((prev) => (prev === equipe ? "" : equipe));
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
