@@ -1,5 +1,5 @@
 /**
- * Gerencial.tsx — /gerencial
+ * Gerencial.tsx â€” /gerencial
  * Painel gerencial com KPIs reais, rankings e filtros completos
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -94,6 +94,18 @@ export default function Gerencial() {
     () => Math.max(220, rankingNucleosData.length * 34),
     [rankingNucleosData.length],
   );
+  const rankingServicosData = useMemo(
+    () =>
+      [...(data?.ranking_servicos || [])]
+        .filter((r) => String(r.servico || "").trim())
+        .sort((a, b) => (b.total - a.total) || String(a.servico).localeCompare(String(b.servico), "pt-BR"))
+        .slice(0, 10),
+    [data?.ranking_servicos],
+  );
+  const rankingServicosChartHeight = useMemo(
+    () => Math.max(220, rankingServicosData.length * 34),
+    [rankingServicosData.length],
+  );
 
   function aplicarFiltros() {
     setProcFrom(procFromDraft);
@@ -128,7 +140,7 @@ export default function Gerencial() {
   };
 
   return (
-    <AppLayout title="Painel Gerencial" subtitle="Leitura executiva do período operacional">
+    <AppLayout title="Painel Gerencial" subtitle="Leitura executiva do perÃ­odo operacional">
       <div className="space-y-6">
         {/* Filtros */}
         <div className="glass-surface rounded-2xl p-6">
@@ -178,7 +190,7 @@ export default function Gerencial() {
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <span className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin mr-2"/>
-            Calculando indicadores…
+            Calculando indicadoresâ€¦
           </div>
         ) : kpis && (
           <>
@@ -188,24 +200,24 @@ export default function Gerencial() {
                 onClick={() => navigate("/historico")}/>
               <MetricCard label="% Mapeado" value={`${kpis.percentual_mapeado_fmt}%`}
                 icon={<Wrench className="w-5 h-5"/>} changeType="positive"/>
-              <MetricCard label="Execuções" value={String(kpis.total_execucoes)}
+              <MetricCard label="ExecuÃ§Ãµes" value={String(kpis.total_execucoes)}
                 icon={<Wrench className="w-5 h-5"/>}
                 onClick={() => navigate("/historico")}/>
-              <MetricCard label="Ocorrências" value={String(kpis.total_ocorrencias)}
+              <MetricCard label="OcorrÃªncias" value={String(kpis.total_ocorrencias)}
                 icon={<AlertTriangle className="w-5 h-5"/>}
                 onClick={() => navigate("/ocorrencias")}
                 changeType={kpis.total_ocorrencias>0?"negative":"neutral"}/>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard label="Núcleos ativos" value={String(kpis.nucleos_ativos)} icon={<MapPin className="w-5 h-5"/>}
+              <MetricCard label="NÃºcleos ativos" value={String(kpis.nucleos_ativos)} icon={<MapPin className="w-5 h-5"/>}
                 onClick={() => navigate("/nucleos-cadastro")}/>
               <MetricCard label="Equipes ativas" value={String(kpis.equipes_ativas)} icon={<Users className="w-5 h-5"/>}
                 onClick={() => {
                   const eq = data?.ranking_equipes?.[0]?.equipe;
                   navigate(`/historico${eq ? `?equipe=${encodeURIComponent(eq)}` : ""}`);
                 }}/>
-              <MetricCard label="Não mapeados" value={String(kpis.nao_mapeados)}
+              <MetricCard label="NÃ£o mapeados" value={String(kpis.nao_mapeados)}
                 icon={<AlertTriangle className="w-5 h-5"/>}
                 onClick={() => navigate("/monitoramento")}
                 changeType={kpis.nao_mapeados>0?"negative":"positive"}/>
@@ -213,11 +225,11 @@ export default function Gerencial() {
                 icon={<TrendingUp className="w-5 h-5"/>}/>
             </div>
 
-            {/* Série temporal */}
+            {/* SÃ©rie temporal */}
             {(data?.serie_temporal||[]).length>0 && (
               <div className="glass-surface rounded-2xl p-6">
                 <div className="relative z-10">
-                  <SectionHeader title="Processamentos por data" subtitle="Evolução temporal dos registros"/>
+                  <SectionHeader title="Processamentos por data" subtitle="EvoluÃ§Ã£o temporal dos registros"/>
                   <div className="h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={data!.serie_temporal}>
@@ -236,10 +248,10 @@ export default function Gerencial() {
 
             {/* Rankings */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Núcleos */}
+              {/* NÃºcleos */}
               <div className="glass-surface rounded-2xl p-6">
                 <div className="relative z-10">
-                  <SectionHeader title="Top Núcleos" subtitle="Por volume de processamentos"/>
+                  <SectionHeader title="Top NÃºcleos" subtitle="Por volume de processamentos"/>
                   <div style={{ height: rankingNucleosChartHeight }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -267,18 +279,35 @@ export default function Gerencial() {
                 </div>
               </div>
 
-              {/* Serviços */}
+              {/* ServiÃ§os */}
               <div className="glass-surface rounded-2xl p-6">
                 <div className="relative z-10">
                   <SectionHeader title="Top Serviços" subtitle="Mais executados no período"/>
-                  <div className="h-[220px]">
+                  <div style={{ height: rankingServicosChartHeight }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data!.ranking_servicos.slice(0,8)} layout="vertical">
+                      <BarChart
+                        data={rankingServicosData}
+                        layout="vertical"
+                        margin={{ top: 4, right: 8, bottom: 4, left: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 16%)" horizontal={false}/>
                         <XAxis type="number" stroke="hsl(215 15% 40%)" fontSize={10} tickLine={false} axisLine={false}/>
-                        <YAxis type="category" dataKey="servico" stroke="hsl(215 15% 40%)" fontSize={9} tickLine={false} axisLine={false} width={120}/>
+                        <YAxis
+                          type="category"
+                          dataKey="servico"
+                          stroke="hsl(215 15% 40%)"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          width={170}
+                          interval={0}
+                          tickFormatter={(value) => {
+                            const txt = String(value || "");
+                            return txt.length > 26 ? `${txt.slice(0, 26)}...` : txt;
+                          }}
+                        />
                         <Tooltip content={<CustomTooltip/>}/>
-                        <Bar dataKey="total" name="Total" fill="hsl(155 60% 55%)" radius={[0,4,4,0]}/>
+                        <Bar dataKey="total" name="Total" fill="hsl(155 60% 55%)" radius={[0,4,4,0]} barSize={18}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -292,7 +321,7 @@ export default function Gerencial() {
                   <div className="space-y-2 mt-2">
                     {data!.ranking_equipes.slice(0,8).map((r,i)=>(
                       <div key={i} className="flex items-center justify-between py-2 border-b border-border/50">
-                        <span className="text-sm text-foreground">{r.equipe||"—"}</span>
+                        <span className="text-sm text-foreground">{r.equipe||"â€”"}</span>
                         <span className="font-mono-data text-sm text-primary">{r.total}</span>
                       </div>
                     ))}
@@ -300,10 +329,10 @@ export default function Gerencial() {
                 </div>
               </div>
 
-              {/* Por núcleo detalhado */}
+              {/* Por nÃºcleo detalhado */}
               <div className="glass-surface rounded-2xl p-6">
                 <div className="relative z-10">
-                  <SectionHeader title="Indicadores por núcleo" subtitle="Execuções e ocorrências"/>
+                  <SectionHeader title="Indicadores por nÃºcleo" subtitle="ExecuÃ§Ãµes e ocorrÃªncias"/>
                   <div className="space-y-2 mt-2">
                     {data!.indicadores_por_nucleo.slice(0,8).map((r,i)=>(
                       <div key={i} className="py-2 border-b border-border/50">
@@ -312,8 +341,8 @@ export default function Gerencial() {
                           <span className="font-mono-data text-xs text-muted-foreground">{r.processamentos} proc.</span>
                         </div>
                         <div className="flex gap-3 text-xs text-muted-foreground">
-                          <span className="text-accent">{r.execucoes} execuções</span>
-                          <span className="text-warning">{r.ocorrencias} ocorrências</span>
+                          <span className="text-accent">{r.execucoes} execuÃ§Ãµes</span>
+                          <span className="text-warning">{r.ocorrencias} ocorrÃªncias</span>
                         </div>
                       </div>
                     ))}
@@ -327,6 +356,7 @@ export default function Gerencial() {
     </AppLayout>
   );
 }
+
 
 
 
