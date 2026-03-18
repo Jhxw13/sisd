@@ -2,7 +2,7 @@
  * Historico.tsx — /historico
  * Rastreabilidade operacional com todos os filtros do sistema antigo
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, RefreshCw, ChevronRight, Download, Play,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { SectionHeader } from "@/components/DataDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -238,28 +239,44 @@ export default function Historico() {
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [processandoId, setProcessandoId] = useState<string | null>(null);
 
-  // Filtros
-  const [q, setQ]                 = useState(searchParams.get("q") ?? "");
-  const [status, setStatus]       = useState(searchParams.get("status") ?? "");
-  const [dataDe, setDataDe]       = useState("");
-  const [dataAte, setDataAte]     = useState("");
-  const [nucleo, setNucleo]       = useState(searchParams.get("nucleo") ?? "");
-  const [municipio, setMunicipio] = useState(searchParams.get("municipio") ?? "");
-  const [equipe, setEquipe]       = useState(searchParams.get("equipe") ?? "");
-  const [procDe, setProcDe]       = useState("");
-  const [procAte, setProcAte]     = useState("");
+  const queryStatus = searchParams.getAll("status");
+  const queryNucleo = searchParams.getAll("nucleo");
+  const queryMunicipio = searchParams.getAll("municipio");
+  const queryEquipe = searchParams.getAll("equipe");
+
+  // Filtros aplicados
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
+  const [status, setStatus] = useState<string[]>(queryStatus.length > 0 ? queryStatus : (searchParams.get("status") ? [searchParams.get("status") as string] : []));
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
+  const [nucleo, setNucleo] = useState<string[]>(queryNucleo.length > 0 ? queryNucleo : (searchParams.get("nucleo") ? [searchParams.get("nucleo") as string] : []));
+  const [municipio, setMunicipio] = useState<string[]>(queryMunicipio.length > 0 ? queryMunicipio : (searchParams.get("municipio") ? [searchParams.get("municipio") as string] : []));
+  const [equipe, setEquipe] = useState<string[]>(queryEquipe.length > 0 ? queryEquipe : (searchParams.get("equipe") ? [searchParams.get("equipe") as string] : []));
+  const [procDe, setProcDe] = useState("");
+  const [procAte, setProcAte] = useState("");
+
+  // Filtros em edicao (draft)
+  const [qDraft, setQDraft] = useState(searchParams.get("q") ?? "");
+  const [statusDraft, setStatusDraft] = useState<string[]>(queryStatus.length > 0 ? queryStatus : (searchParams.get("status") ? [searchParams.get("status") as string] : []));
+  const [dataDeDraft, setDataDeDraft] = useState("");
+  const [dataAteDraft, setDataAteDraft] = useState("");
+  const [nucleoDraft, setNucleoDraft] = useState<string[]>(queryNucleo.length > 0 ? queryNucleo : (searchParams.get("nucleo") ? [searchParams.get("nucleo") as string] : []));
+  const [municipioDraft, setMunicipioDraft] = useState<string[]>(queryMunicipio.length > 0 ? queryMunicipio : (searchParams.get("municipio") ? [searchParams.get("municipio") as string] : []));
+  const [equipeDraft, setEquipeDraft] = useState<string[]>(queryEquipe.length > 0 ? queryEquipe : (searchParams.get("equipe") ? [searchParams.get("equipe") as string] : []));
+  const [procDeDraft, setProcDeDraft] = useState("");
+  const [procAteDraft, setProcAteDraft] = useState("");
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams({page:String(page),per_page:"20"});
       if (q)          p.set("q",q);
-      if (status)     p.set("status",status);
+      status.forEach((v) => p.append("status", v));
       if (dataDe)     p.set("data_de",dataDe);
       if (dataAte)    p.set("data_ate",dataAte);
-      if (nucleo)     p.set("nucleo",nucleo);
-      if (municipio)  p.set("municipio",municipio);
-      if (equipe)     p.set("equipe",equipe);
+      nucleo.forEach((v) => p.append("nucleo", v));
+      municipio.forEach((v) => p.append("municipio", v));
+      equipe.forEach((v) => p.append("equipe", v));
       if (procDe)     p.set("processado_de",procDe);
       if (procAte)    p.set("processado_ate",procAte);
 
@@ -272,17 +289,67 @@ export default function Historico() {
 
   useEffect(()=>{ carregar(); },[carregar]);
   useEffect(() => {
-    setQ(searchParams.get("q") ?? "");
-    setStatus(searchParams.get("status") ?? "");
-    setNucleo(searchParams.get("nucleo") ?? "");
-    setMunicipio(searchParams.get("municipio") ?? "");
-    setEquipe(searchParams.get("equipe") ?? "");
+    const nextQ = searchParams.get("q") ?? "";
+    const nextStatus = searchParams.getAll("status");
+    const nextNucleo = searchParams.getAll("nucleo");
+    const nextMunicipio = searchParams.getAll("municipio");
+    const nextEquipe = searchParams.getAll("equipe");
+
+    setQ(nextQ);
+    setQDraft(nextQ);
+    setStatus(nextStatus.length > 0 ? nextStatus : (searchParams.get("status") ? [searchParams.get("status") as string] : []));
+    setStatusDraft(nextStatus.length > 0 ? nextStatus : (searchParams.get("status") ? [searchParams.get("status") as string] : []));
+    setNucleo(nextNucleo.length > 0 ? nextNucleo : (searchParams.get("nucleo") ? [searchParams.get("nucleo") as string] : []));
+    setNucleoDraft(nextNucleo.length > 0 ? nextNucleo : (searchParams.get("nucleo") ? [searchParams.get("nucleo") as string] : []));
+    setMunicipio(nextMunicipio.length > 0 ? nextMunicipio : (searchParams.get("municipio") ? [searchParams.get("municipio") as string] : []));
+    setMunicipioDraft(nextMunicipio.length > 0 ? nextMunicipio : (searchParams.get("municipio") ? [searchParams.get("municipio") as string] : []));
+    setEquipe(nextEquipe.length > 0 ? nextEquipe : (searchParams.get("equipe") ? [searchParams.get("equipe") as string] : []));
+    setEquipeDraft(nextEquipe.length > 0 ? nextEquipe : (searchParams.get("equipe") ? [searchParams.get("equipe") as string] : []));
     setPage(1);
   }, [searchParams]);
 
+  const statusOptions = useMemo(
+    () => [
+      { label: "Concluido", value: "concluido" },
+      { label: "Pendente", value: "pendente" },
+      { label: "Em revisao", value: "em_revisao" },
+      { label: "Aprovado", value: "aprovado" },
+      { label: "Processando", value: "processando" },
+      { label: "Rejeitado", value: "rejeitado" },
+    ],
+    [],
+  );
+  const nucleoOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.nucleo || "").trim()), ...nucleoDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, nucleoDraft],
+  );
+  const municipioOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.municipio || "").trim()), ...municipioDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, municipioDraft],
+  );
+  const equipeOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.equipe || "").trim()), ...equipeDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, equipeDraft],
+  );
+
+  function aplicarFiltros() {
+    setQ(qDraft.trim());
+    setStatus(statusDraft);
+    setDataDe(dataDeDraft);
+    setDataAte(dataAteDraft);
+    setNucleo(nucleoDraft);
+    setMunicipio(municipioDraft);
+    setEquipe(equipeDraft);
+    setProcDe(procDeDraft);
+    setProcAte(procAteDraft);
+    setPage(1);
+  }
+
   function limpar() {
-    setQ(""); setStatus(""); setDataDe(""); setDataAte("");
-    setNucleo(""); setMunicipio(""); setEquipe(""); setProcDe(""); setProcAte("");
+    setQ(""); setStatus([]); setDataDe(""); setDataAte("");
+    setNucleo([]); setMunicipio([]); setEquipe([]); setProcDe(""); setProcAte("");
+    setQDraft(""); setStatusDraft([]); setDataDeDraft(""); setDataAteDraft("");
+    setNucleoDraft([]); setMunicipioDraft([]); setEquipeDraft([]); setProcDeDraft(""); setProcAteDraft("");
     setPage(1);
   }
 
@@ -320,9 +387,21 @@ export default function Historico() {
               className="w-full flex items-center justify-between px-6 py-4 hover:bg-surface-hover transition-colors">
               <span className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Filter className="w-4 h-4 text-primary"/> Filtros
-                {[q,status,dataDe,dataAte,nucleo,municipio,equipe,procDe,procAte].filter(Boolean).length > 0 && (
+                {(
+                  [q, dataDe, dataAte, procDe, procAte].filter(Boolean).length +
+                  (status.length > 0 ? 1 : 0) +
+                  (nucleo.length > 0 ? 1 : 0) +
+                  (municipio.length > 0 ? 1 : 0) +
+                  (equipe.length > 0 ? 1 : 0)
+                ) > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">
-                    {[q,status,dataDe,dataAte,nucleo,municipio,equipe,procDe,procAte].filter(Boolean).length} ativos
+                    {(
+                      [q, dataDe, dataAte, procDe, procAte].filter(Boolean).length +
+                      (status.length > 0 ? 1 : 0) +
+                      (nucleo.length > 0 ? 1 : 0) +
+                      (municipio.length > 0 ? 1 : 0) +
+                      (equipe.length > 0 ? 1 : 0)
+                    )} ativos
                   </span>
                 )}
               </span>
@@ -338,60 +417,44 @@ export default function Historico() {
                       <label className="text-xs text-muted-foreground">Busca livre</label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                        <Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Núcleo, equipe, município, logradouro, protocolo…"
+                        <Input value={qDraft} onChange={e=>setQDraft(e.target.value)} placeholder="Nucleo, equipe, municipio, logradouro, protocolo..."
                           className="pl-10 bg-secondary border-border text-sm"/>
                       </div>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs text-muted-foreground">Status</label>
-                      <select value={status} onChange={e=>setStatus(e.target.value)}
-                        className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                        <option value="">Todos</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="em_revisao">Em revisão</option>
-                        <option value="aprovado">Aprovado</option>
-                        <option value="processando">Processando</option>
-                        <option value="rejeitado">Rejeitado</option>
-                      </select>
+                      <MultiSelectFilter label="Selecionar status" options={statusOptions} value={statusDraft} onChange={setStatusDraft} emptyLabel="Todos os status" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Núcleo</label>
-                      <Input value={nucleo} onChange={e=>setNucleo(e.target.value)}
-                        placeholder="Ex: Mississipi" className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Nucleo</label>
+                      <MultiSelectFilter label="Selecionar nucleos" options={nucleoOptions} value={nucleoDraft} onChange={setNucleoDraft} emptyLabel="Todos os nucleos" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Município</label>
-                      <Input value={municipio} onChange={e=>setMunicipio(e.target.value)}
-                        placeholder="Ex: Barueri" className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Municipio</label>
+                      <MultiSelectFilter label="Selecionar municipios" options={municipioOptions} value={municipioDraft} onChange={setMunicipioDraft} emptyLabel="Todos os municipios" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs text-muted-foreground">Equipe</label>
-                      <Input value={equipe} onChange={e=>setEquipe(e.target.value)}
-                        placeholder="Ex: Carlos" className="bg-secondary border-border text-sm"/>
+                      <MultiSelectFilter label="Selecionar equipes" options={equipeOptions} value={equipeDraft} onChange={setEquipeDraft} emptyLabel="Todas as equipes" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Data da obra — de</label>
-                      <Input type="date" value={dataDe} onChange={e=>setDataDe(e.target.value)}
-                        className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Data da obra - de</label>
+                      <Input type="date" value={dataDeDraft} onChange={e=>setDataDeDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Data da obra — até</label>
-                      <Input type="date" value={dataAte} onChange={e=>setDataAte(e.target.value)}
-                        className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Data da obra - ate</label>
+                      <Input type="date" value={dataAteDraft} onChange={e=>setDataAteDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Processado em — de</label>
-                      <Input type="date" value={procDe} onChange={e=>setProcDe(e.target.value)}
-                        className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Processado em - de</label>
+                      <Input type="date" value={procDeDraft} onChange={e=>setProcDeDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground">Processado em — até</label>
-                      <Input type="date" value={procAte} onChange={e=>setProcAte(e.target.value)}
-                        className="bg-secondary border-border text-sm"/>
+                      <label className="text-xs text-muted-foreground">Processado em - ate</label>
+                      <Input type="date" value={procAteDraft} onChange={e=>setProcAteDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
                     </div>
                     <div className="sm:col-span-2 lg:col-span-3 flex gap-2 pt-2">
-                      <Button size="sm" onClick={()=>{setPage(1);carregar();}} className="gap-1.5">
+                      <Button size="sm" onClick={aplicarFiltros} className="gap-1.5">
                         <Search className="w-3.5 h-3.5"/> Aplicar filtros
                       </Button>
                       <Button size="sm" variant="outline" onClick={limpar}>Limpar</Button>
@@ -496,3 +559,4 @@ export default function Historico() {
     </AppLayout>
   );
 }
+

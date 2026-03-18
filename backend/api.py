@@ -405,12 +405,35 @@ def get_entradas():
     per_page= min(100,int(request.args.get("per_page",20)))
     offset  = (page-1)*per_page
 
+    def _multi_values(name: str) -> list[str]:
+        raw_list = request.args.getlist(name) or []
+        out: list[str] = []
+        for raw in raw_list:
+            for p in str(raw or "").split(","):
+                v = str(p or "").strip()
+                if v:
+                    out.append(v)
+        return list(dict.fromkeys(out))
+
+    status_list = _multi_values("status")
+    nucleo_list = _multi_values("nucleo")
+    municipio_list = _multi_values("municipio")
+    equipe_list = _multi_values("equipe")
+    if not status_list and status:
+        status_list = [status]
+    if not nucleo_list and nucleo:
+        nucleo_list = [nucleo]
+    if not municipio_list and municipio:
+        municipio_list = [municipio]
+    if not equipe_list and equipe:
+        equipe_list = [equipe]
+
     qry = (supabase.table("entradas").select("*",count="exact")
            .order("created_at",desc=True).range(offset,offset+per_page-1))
-    if status:   qry = qry.eq("status",status)
-    if nucleo:   qry = qry.ilike("nucleo",f"%{nucleo}%")
-    if municipio:qry = qry.ilike("municipio",f"%{municipio}%")
-    if equipe:   qry = qry.ilike("equipe",f"%{equipe}%")
+    if status_list:    qry = qry.in_("status", status_list)
+    if nucleo_list:    qry = qry.in_("nucleo", nucleo_list)
+    if municipio_list: qry = qry.in_("municipio", municipio_list)
+    if equipe_list:    qry = qry.in_("equipe", equipe_list)
     if data_de:  qry = qry.gte("data_referencia",data_de)
     if data_ate: qry = qry.lte("data_referencia",data_ate)
     if q:        qry = qry.or_(f"nucleo.ilike.%{q}%,equipe.ilike.%{q}%,municipio.ilike.%{q}%,logradouro.ilike.%{q}%")
@@ -882,17 +905,40 @@ def get_historico():
     per_page   = min(100,int(request.args.get("per_page",20)))
     offset     = (page-1)*per_page
 
+    def _multi_values(name: str) -> list[str]:
+        raw_list = request.args.getlist(name) or []
+        out: list[str] = []
+        for raw in raw_list:
+            for p in str(raw or "").split(","):
+                v = str(p or "").strip()
+                if v:
+                    out.append(v)
+        return list(dict.fromkeys(out))
+
+    status_list = _multi_values("status")
+    nucleo_list = _multi_values("nucleo")
+    municipio_list = _multi_values("municipio")
+    equipe_list = _multi_values("equipe")
+    if not status_list and status:
+        status_list = [status]
+    if not nucleo_list and nucleo:
+        nucleo_list = [nucleo]
+    if not municipio_list and municipio:
+        municipio_list = [municipio]
+    if not equipe_list and equipe:
+        equipe_list = [equipe]
+
     qry = (supabase.table("entradas")
            .select("id,protocolo,nucleo,municipio,equipe,logradouro,data_referencia,status,enviado_por,created_at,processado_em,observacao_gestor",
                    count="exact")
            .order("created_at",desc=True).range(offset,offset+per_page-1))
 
-    if status:     qry = qry.eq("status",status)
+    if status_list: qry = qry.in_("status", status_list)
     if data_de:    qry = qry.gte("data_referencia",data_de)
     if data_ate:   qry = qry.lte("data_referencia",data_ate)
-    if nucleo:     qry = qry.ilike("nucleo",f"%{nucleo}%")
-    if municipio:  qry = qry.ilike("municipio",f"%{municipio}%")
-    if equipe:     qry = qry.ilike("equipe",f"%{equipe}%")
+    if nucleo_list:    qry = qry.in_("nucleo", nucleo_list)
+    if municipio_list: qry = qry.in_("municipio", municipio_list)
+    if equipe_list:    qry = qry.in_("equipe", equipe_list)
     if proc_de:    qry = qry.gte("created_at",proc_de)
     if proc_ate:   qry = qry.lte("created_at",proc_ate+"T23:59:59")
     if q:
@@ -952,15 +998,38 @@ def get_gerencial():
     status_f     = request.args.get("status","").strip()
     top_n        = min(50,max(3,int(request.args.get("top_n",10))))
 
+    def _multi_values(name: str) -> list[str]:
+        raw_list = request.args.getlist(name) or []
+        out: list[str] = []
+        for raw in raw_list:
+            for p in str(raw or "").split(","):
+                v = str(p or "").strip()
+                if v:
+                    out.append(v)
+        return list(dict.fromkeys(out))
+
+    nucleos = _multi_values("nucleo")
+    municipios = _multi_values("municipio")
+    equipes = _multi_values("equipe")
+    statuses = _multi_values("status")
+    if not nucleos and nucleo:
+        nucleos = [nucleo]
+    if not municipios and municipio:
+        municipios = [municipio]
+    if not equipes and equipe:
+        equipes = [equipe]
+    if not statuses and status_f:
+        statuses = [status_f]
+
     qry = supabase.table("entradas").select("id,nucleo,municipio,equipe,data_referencia,status,created_at")
     if obra_from:  qry = qry.gte("data_referencia",obra_from)
     if obra_to:    qry = qry.lte("data_referencia",obra_to)
     if proc_from:  qry = qry.gte("created_at",proc_from)
     if proc_to:    qry = qry.lte("created_at",proc_to+"T23:59:59")
-    if nucleo:     qry = qry.ilike("nucleo",f"%{nucleo}%")
-    if municipio:  qry = qry.ilike("municipio",f"%{municipio}%")
-    if equipe:     qry = qry.ilike("equipe",f"%{equipe}%")
-    if status_f:   qry = qry.eq("status",status_f)
+    if nucleos:    qry = qry.in_("nucleo", nucleos)
+    if municipios: qry = qry.in_("municipio", municipios)
+    if equipes:    qry = qry.in_("equipe", equipes)
+    if statuses:   qry = qry.in_("status", statuses)
 
     entradas = qry.execute().data or []
     ids = [e["id"] for e in entradas]
@@ -1016,8 +1085,8 @@ def get_gerencial():
         "ocorrencias_top":   [{"descricao":k,"total":v} for k,v in ocorr_c.most_common(top_n)],
         "serie_temporal":    [{"data":k,"total":v} for k,v in sorted(data_c.items())],
         "indicadores_por_nucleo": sorted(nd.values(),key=lambda x:-x["processamentos"])[:top_n],
-        "filtros": {"obra_from":obra_from,"obra_to":obra_to,"nucleo":nucleo,
-                    "municipio":municipio,"equipe":equipe,"top_n":top_n},
+        "filtros": {"obra_from":obra_from,"obra_to":obra_to,"nucleo":nucleos,
+                    "municipio":municipios,"equipe":equipes,"status":statuses,"top_n":top_n},
     })
 
 # ════════════════════════════════════════════════════════════════

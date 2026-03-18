@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { apiFetch } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useNavigate } from "react-router-dom";
 
 interface OcorrenciaDetalhada {
@@ -36,6 +37,13 @@ export default function Ocorrencias() {
   const [kpis, setKpis] = useState<GerencialData | null>(null);
   const [rows, setRows] = useState<OcorrenciaDetalhada[]>([]);
   const [q, setQ] = useState("");
+  const [qDraft, setQDraft] = useState("");
+  const [nucleo, setNucleo] = useState<string[]>([]);
+  const [municipio, setMunicipio] = useState<string[]>([]);
+  const [equipe, setEquipe] = useState<string[]>([]);
+  const [nucleoDraft, setNucleoDraft] = useState<string[]>([]);
+  const [municipioDraft, setMunicipioDraft] = useState<string[]>([]);
+  const [equipeDraft, setEquipeDraft] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -61,6 +69,45 @@ export default function Ocorrencias() {
     [rows],
   );
 
+  const nucleoOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.nucleo || "").trim()), ...nucleoDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, nucleoDraft],
+  );
+  const municipioOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.municipio || "").trim()), ...municipioDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, municipioDraft],
+  );
+  const equipeOptions = useMemo(
+    () => Array.from(new Set([...rows.map((r) => String(r.equipe || "").trim()), ...equipeDraft])).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows, equipeDraft],
+  );
+  const rowsFiltradas = useMemo(() => {
+    return rows.filter((r) => {
+      if (nucleo.length > 0 && !nucleo.includes(String(r.nucleo || "").trim())) return false;
+      if (municipio.length > 0 && !municipio.includes(String(r.municipio || "").trim())) return false;
+      if (equipe.length > 0 && !equipe.includes(String(r.equipe || "").trim())) return false;
+      return true;
+    });
+  }, [rows, nucleo, municipio, equipe]);
+
+  function aplicarFiltros() {
+    setQ(qDraft.trim());
+    setNucleo(nucleoDraft);
+    setMunicipio(municipioDraft);
+    setEquipe(equipeDraft);
+  }
+
+  function limparFiltros() {
+    setQ("");
+    setQDraft("");
+    setNucleo([]);
+    setMunicipio([]);
+    setEquipe([]);
+    setNucleoDraft([]);
+    setMunicipioDraft([]);
+    setEquipeDraft([]);
+  }
+
   return (
     <AppLayout title="Ocorrencias" subtitle="Ocorrencias detalhadas com vinculo ao relatorio completo">
       <div className="space-y-6">
@@ -78,22 +125,28 @@ export default function Ocorrencias() {
               <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && load()}
+                  value={qDraft}
+                  onChange={(e) => setQDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && aplicarFiltros()}
                   placeholder="Buscar por descricao, nucleo, municipio, equipe ou protocolo"
                   className="pl-10"
                 />
               </div>
-              <Button variant="outline" onClick={load}>Buscar</Button>
+              <Button variant="outline" onClick={aplicarFiltros}>Aplicar</Button>
+              <Button variant="outline" onClick={limparFiltros}>Limpar</Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <MultiSelectFilter label="Selecionar nucleos" options={nucleoOptions} value={nucleoDraft} onChange={setNucleoDraft} emptyLabel="Todos os nucleos" />
+              <MultiSelectFilter label="Selecionar municipios" options={municipioOptions} value={municipioDraft} onChange={setMunicipioDraft} emptyLabel="Todos os municipios" />
+              <MultiSelectFilter label="Selecionar equipes" options={equipeOptions} value={equipeDraft} onChange={setEquipeDraft} emptyLabel="Todas as equipes" />
             </div>
           </div>
           {loading ? (
             <div className="px-6 py-10 text-sm text-muted-foreground text-center">Carregando ocorrencias reais...</div>
-          ) : rows.length === 0 ? (
+          ) : rowsFiltradas.length === 0 ? (
             <div className="px-6 py-10 text-sm text-muted-foreground text-center">Sem ocorrencias no banco para o filtro atual.</div>
           ) : (
-            rows.map((o, i) => {
+            rowsFiltradas.map((o, i) => {
               const rel = (o.relatorios || []).find((x) => x.url_pdf || x.url_docx || x.url_xlsx);
               const relUrl = rel?.url_pdf || rel?.url_docx || rel?.url_xlsx;
               return (

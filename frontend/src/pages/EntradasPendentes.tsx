@@ -21,6 +21,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
 import { SectionHeader, StatusBadge, DataRow } from "@/components/DataDisplay";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
@@ -301,7 +302,8 @@ function ModalDetalhe({
 export default function EntradasPendentes() {
   const [entradas, setEntradas] = useState<Entrada[]>([]);
   const [total, setTotal] = useState(0);
-  const [filtroStatus, setFiltroStatus] = useState<string>("");
+  const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
+  const [draftStatus, setDraftStatus] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -310,7 +312,7 @@ export default function EntradasPendentes() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), per_page: "20" });
-      if (filtroStatus) params.set("status", filtroStatus);
+      filtroStatus.forEach((s) => params.append("status", s));
       const data = await api(`/api/entradas?${params}`);
       setEntradas(data.data);
       setTotal(data.total);
@@ -332,7 +334,6 @@ export default function EntradasPendentes() {
   const concluidos   = entradas.filter(e => e.status === "concluido").length;
 
   const FILTROS: { label: string; value: string }[] = [
-    { label: "Todos", value: "" },
     { label: "Pendentes", value: "pendente" },
     { label: "Em revisao", value: "em_revisao" },
     { label: "Aprovados", value: "aprovado" },
@@ -370,18 +371,30 @@ export default function EntradasPendentes() {
             </div>
 
             {/* Filtros por status */}
-            <div className="flex gap-1.5 px-6 pb-4 flex-wrap">
-              {FILTROS.map(f => (
-                <button key={f.value} onClick={() => { setFiltroStatus(f.value); setPage(1); }}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                    filtroStatus === f.value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground hover:text-foreground",
-                  )}>
-                  {f.label}
-                </button>
-              ))}
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <MultiSelectFilter
+                  label="Selecionar status"
+                  options={FILTROS}
+                  value={draftStatus}
+                  onChange={setDraftStatus}
+                  emptyLabel="Todos os status"
+                />
+                <Button size="sm" onClick={() => { setFiltroStatus(draftStatus); setPage(1); }}>
+                  Aplicar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setDraftStatus([]);
+                    setFiltroStatus([]);
+                    setPage(1);
+                  }}
+                >
+                  Limpar
+                </Button>
+              </div>
             </div>
 
             {/* Header tabela */}

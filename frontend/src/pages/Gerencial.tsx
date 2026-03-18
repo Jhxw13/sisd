@@ -2,12 +2,13 @@
  * Gerencial.tsx — /gerencial
  * Painel gerencial com KPIs reais, rankings e filtros completos
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Filter, TrendingUp, Users, MapPin, Wrench, AlertTriangle, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/MetricCard";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { SectionHeader } from "@/components/DataDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,16 +35,27 @@ export default function Gerencial() {
   const [data, setData]       = useState<GerencialData | null>(null);
   const [loading, setLoading] = useState(true);
   const [topN, setTopN]       = useState("10");
+  const [topNDraft, setTopNDraft] = useState("10");
 
-  // Filtros
+  // Filtros aplicados
   const [obraFrom, setObraFrom]     = useState("");
   const [obraTo, setObraTo]         = useState("");
   const [procFrom, setProcFrom]     = useState("");
   const [procTo, setProcTo]         = useState("");
-  const [nucleo, setNucleo]         = useState("");
-  const [municipio, setMunicipio]   = useState("");
-  const [equipe, setEquipe]         = useState("");
-  const [statusF, setStatusF]       = useState("");
+  const [nucleo, setNucleo]         = useState<string[]>([]);
+  const [municipio, setMunicipio]   = useState<string[]>([]);
+  const [equipe, setEquipe]         = useState<string[]>([]);
+  const [statusF, setStatusF]       = useState<string[]>([]);
+
+  // Filtros em edicao (draft)
+  const [obraFromDraft, setObraFromDraft] = useState("");
+  const [obraToDraft, setObraToDraft] = useState("");
+  const [procFromDraft, setProcFromDraft] = useState("");
+  const [procToDraft, setProcToDraft] = useState("");
+  const [nucleoDraft, setNucleoDraft] = useState<string[]>([]);
+  const [municipioDraft, setMunicipioDraft] = useState<string[]>([]);
+  const [equipeDraft, setEquipeDraft] = useState<string[]>([]);
+  const [statusFDraft, setStatusFDraft] = useState<string[]>([]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -53,15 +65,50 @@ export default function Gerencial() {
       if (obraTo)    p.set("obra_to",obraTo);
       if (procFrom)  p.set("processed_from",procFrom);
       if (procTo)    p.set("processed_to",procTo);
-      if (nucleo)    p.set("nucleo",nucleo);
-      if (municipio) p.set("municipio",municipio);
-      if (equipe)    p.set("equipe",equipe);
-      if (statusF)   p.set("status",statusF);
+      nucleo.forEach((v) => p.append("nucleo", v));
+      municipio.forEach((v) => p.append("municipio", v));
+      equipe.forEach((v) => p.append("equipe", v));
+      statusF.forEach((v) => p.append("status", v));
       setData(await apiFetch(`/api/gerencial?${p}`));
     } finally { setLoading(false); }
   }, [obraFrom,obraTo,procFrom,procTo,nucleo,municipio,equipe,statusF,topN]);
 
   useEffect(()=>{ carregar(); },[carregar]);
+
+  const statusOptions = useMemo(
+    () => [
+      { label: "Concluido", value: "concluido" },
+      { label: "Pendente", value: "pendente" },
+      { label: "Em revisao", value: "em_revisao" },
+      { label: "Aprovado", value: "aprovado" },
+      { label: "Processando", value: "processando" },
+      { label: "Rejeitado", value: "rejeitado" },
+    ],
+    [],
+  );
+  const nucleoOptions = useMemo(() => Array.from(new Set([...(data?.ranking_nucleos || []).map((r) => r.nucleo), ...nucleoDraft])).filter(Boolean), [data?.ranking_nucleos, nucleoDraft]);
+  const municipioOptions = useMemo(() => Array.from(new Set([...(data?.ranking_municipios || []).map((r) => r.municipio), ...municipioDraft])).filter(Boolean), [data?.ranking_municipios, municipioDraft]);
+  const equipeOptions = useMemo(() => Array.from(new Set([...(data?.ranking_equipes || []).map((r) => r.equipe), ...equipeDraft])).filter(Boolean), [data?.ranking_equipes, equipeDraft]);
+
+  function aplicarFiltros() {
+    setObraFrom(obraFromDraft);
+    setObraTo(obraToDraft);
+    setProcFrom(procFromDraft);
+    setProcTo(procToDraft);
+    setNucleo(nucleoDraft);
+    setMunicipio(municipioDraft);
+    setEquipe(equipeDraft);
+    setStatusF(statusFDraft);
+    setTopN(topNDraft || "10");
+  }
+
+  function limparFiltros() {
+    setObraFrom("");setObraTo("");setProcFrom("");setProcTo("");
+    setNucleo([]);setMunicipio([]);setEquipe([]);setStatusF([]);
+    setObraFromDraft("");setObraToDraft("");setProcFromDraft("");setProcToDraft("");
+    setNucleoDraft([]);setMunicipioDraft([]);setEquipeDraft([]);setStatusFDraft([]);
+    setTopN("10");setTopNDraft("10");
+  }
 
   const kpis = data?.kpis_principais;
 
@@ -88,59 +135,50 @@ export default function Gerencial() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Obra — de</label>
-                <Input type="date" value={obraFrom} onChange={e=>setObraFrom(e.target.value)} className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Obra - de</label>
+                <Input type="date" value={obraFromDraft} onChange={e=>setObraFromDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Obra — até</label>
-                <Input type="date" value={obraTo} onChange={e=>setObraTo(e.target.value)} className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Obra - ate</label>
+                <Input type="date" value={obraToDraft} onChange={e=>setObraToDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Processado — de</label>
-                <Input type="date" value={procFrom} onChange={e=>setProcFrom(e.target.value)} className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Processado - de</label>
+                <Input type="date" value={procFromDraft} onChange={e=>setProcFromDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Processado — até</label>
-                <Input type="date" value={procTo} onChange={e=>setProcTo(e.target.value)} className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Processado - ate</label>
+                <Input type="date" value={procToDraft} onChange={e=>setProcToDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Top N</label>
-                <Input type="number" min="3" max="50" value={topN} onChange={e=>setTopN(e.target.value)} className="bg-secondary border-border text-sm"/>
+                <Input type="number" min="3" max="50" value={topNDraft} onChange={e=>setTopNDraft(e.target.value)} className="bg-secondary border-border text-sm"/>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Núcleo</label>
-                <Input value={nucleo} onChange={e=>setNucleo(e.target.value)} placeholder="Ex: Mississipi" className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Nucleo</label>
+                <MultiSelectFilter label="Selecionar nucleos" options={nucleoOptions} value={nucleoDraft} onChange={setNucleoDraft} emptyLabel="Todos os nucleos" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Município</label>
-                <Input value={municipio} onChange={e=>setMunicipio(e.target.value)} placeholder="Ex: Barueri" className="bg-secondary border-border text-sm"/>
+                <label className="text-xs text-muted-foreground">Municipio</label>
+                <MultiSelectFilter label="Selecionar municipios" options={municipioOptions} value={municipioDraft} onChange={setMunicipioDraft} emptyLabel="Todos os municipios" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Equipe</label>
-                <Input value={equipe} onChange={e=>setEquipe(e.target.value)} placeholder="Ex: Carlos" className="bg-secondary border-border text-sm"/>
+                <MultiSelectFilter label="Selecionar equipes" options={equipeOptions} value={equipeDraft} onChange={setEquipeDraft} emptyLabel="Todas as equipes" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Status</label>
-                <select value={statusF} onChange={e=>setStatusF(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">Todos</option>
-                  <option value="concluido">Concluído</option>
-                  <option value="pendente">Pendente</option>
-                </select>
+                <MultiSelectFilter label="Selecionar status" options={statusOptions} value={statusFDraft} onChange={setStatusFDraft} emptyLabel="Todos os status" />
               </div>
               <div className="flex items-end gap-2">
-                <Button size="sm" onClick={carregar} className="gap-1.5 flex-1">
+                <Button size="sm" onClick={aplicarFiltros} className="gap-1.5 flex-1">
                   <Filter className="w-3.5 h-3.5"/> Aplicar
                 </Button>
-                <Button size="sm" variant="outline" onClick={()=>{
-                  setObraFrom("");setObraTo("");setProcFrom("");setProcTo("");
-                  setNucleo("");setMunicipio("");setEquipe("");setStatusF("");
-                }}>✕</Button>
+                <Button size="sm" variant="outline" onClick={limparFiltros}>Limpar</Button>
               </div>
             </div>
           </div>
         </div>
-
         {/* KPIs */}
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -281,3 +319,4 @@ export default function Gerencial() {
     </AppLayout>
   );
 }
+
