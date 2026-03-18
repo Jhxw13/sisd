@@ -28,5 +28,5 @@ export function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return autenticado ? <>{children}</> : <Navigate to="/login" replace />;
+  return autenticado ? <>{children}</> : <Navigate to="/gestao/login" replace />;
 }

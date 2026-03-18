@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -40,7 +40,8 @@ export default function App() {
           <Routes>
             {/* Públicas */}
             <Route path="/relatorio" element={<FormularioRelatorio />} />
-            <Route path="/login"     element={<Login />} />
+            <Route path="/gestao/login" element={<Login />} />
+            <Route path="/login" element={<Navigate to="/relatorio" replace />} />
 
             {/* Painel — privadas */}
             <Route path="/"                  element={<P><Index /></P>} />

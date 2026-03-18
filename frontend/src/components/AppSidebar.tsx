@@ -54,7 +54,7 @@ export function AppSidebar() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    navigate("/login");
+    navigate("/gestao/login");
   }
 
   return (
