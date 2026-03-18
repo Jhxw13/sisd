@@ -18,7 +18,7 @@ export function MetricCard({ label, value, change, changeType = "neutral", icon,
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onClick}
-      className={cn("glass-surface rounded-2xl p-6 group relative", onClick ? "cursor-pointer" : "cursor-default")}
+      className={cn("glass-surface overflow-visible rounded-2xl p-6 group relative", onClick ? "cursor-pointer" : "cursor-default")}
     >
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
